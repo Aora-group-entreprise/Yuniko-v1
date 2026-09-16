@@ -22,8 +22,12 @@ export function PostCard({ post }: { post: FeedPost }) {
         <ActionButton label={String(post.likeCount + (liked ? 1 : 0))} onClick={() => toggleLike(post.id)}>
           <Heart size={25} className={liked ? "filled-heart" : ""} strokeWidth={1.8} />
         </ActionButton>
-        <ActionButton label={String(post.commentCount)}><MessageCircle size={25} strokeWidth={1.8} /></ActionButton>
-        <ActionButton label={String(post.shareCount)}><Share2 size={25} strokeWidth={1.8} /></ActionButton>
+        <ActionButton label={String(post.commentCount)}>
+          <MessageCircle size={25} strokeWidth={1.8} />
+        </ActionButton>
+        <ActionButton label={String(post.shareCount)}>
+          <Share2 size={25} strokeWidth={1.8} />
+        </ActionButton>
         <ActionButton label={saved ? "Saved" : "Save"} onClick={() => toggleSave(post.id)}>
           <Bookmark size={25} className={saved ? "filled-save" : ""} strokeWidth={1.8} />
         </ActionButton>
@@ -31,7 +35,9 @@ export function PostCard({ post }: { post: FeedPost }) {
 
       <div className="post-copy">
         <div className="post-author-row">
-          <div className="avatar-ring" style={{ background: GRADIENT }}><img src={post.author.avatarUrl} alt={post.author.displayName} /></div>
+          <div className="avatar-ring" style={{ background: GRADIENT }}>
+            <img src={post.author.avatarUrl} alt={post.author.displayName} />
+          </div>
           <div className="post-author-meta">
             <button type="button" className="post-author">{post.author.displayName}</button>
             <p>{post.location ?? "World Feed"}</p>
@@ -45,5 +51,15 @@ export function PostCard({ post }: { post: FeedPost }) {
 }
 
 function ActionButton({ label, onClick, children }: { label: string; onClick?: () => void; children: React.ReactNode }) {
-  return <motion.button whileTap={{ scale: 0.88 }} type="button" className="post-action" onClick={onClick}><span>{children}</span><small>{label}</small></motion.button>;
+  return (
+    <motion.button
+      whileTap={{ scale: 0.88 }}
+      type="button"
+      className="post-action"
+      onClick={onClick}
+    >
+      <span>{children}</span>
+      <small>{label}</small>
+    </motion.button>
+  );
 }
