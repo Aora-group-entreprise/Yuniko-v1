@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Globe, Search, UserPlus, WifiOff } from "lucide-react";
+import { Bell, ChevronDown, Globe, MessageCircle, Plus, Search, UserPlus, UserRound, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getChronologicalFeed } from "./feed.service";
 import { PostCard } from "./components/PostCard";
@@ -29,7 +29,7 @@ export function FeedPage() {
     <main className="feed-shell">
       <header className="feed-header">
         <button type="button" className="yuniko-wordmark" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Yuniko</button>
-        <button type="button" className="world-selector" onClick={() => setWorldMenu((value) => !value)}>
+        <button type="button" className="world-selector" onClick={() => setWorldMenu((value) => !value)} aria-expanded={worldMenu}>
           <Globe size={12} />World Feed<ChevronDown size={11} />
         </button>
         <div className="feed-header-actions">
@@ -38,11 +38,17 @@ export function FeedPage() {
         </div>
       </header>
 
-      {worldMenu && <div className="world-menu"><button type="button"><Globe size={13} />World Feed</button><button type="button"><span>#</span>Trending tags</button></div>}
+      {worldMenu && (
+        <div className="world-menu" role="menu">
+          <button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><Globe size={13} />World Feed</button>
+          <button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><span>#</span>Trending tags</button>
+        </div>
+      )}
+
       <StoryStrip stories={data?.stories ?? []} />
       {!online && <div className="offline-bar"><WifiOff size={12} /><span>Offline mode</span></div>}
 
-      <section className="feed-viewport" data-testid="posts-feed">
+      <section className="feed-viewport" data-testid="posts-feed" aria-label="Following feed">
         {isLoading && <FeedSkeleton />}
         {isError && <div className="feed-state">Unable to load the feed.</div>}
         {!isLoading && !isError && data?.posts.map((post) => (
@@ -53,18 +59,18 @@ export function FeedPage() {
       </section>
 
       <nav className="bottom-nav" aria-label="Primary navigation">
-        <NavItem label="Home" active="true">⌂</NavItem>
-        <NavItem label="Alerts">◌</NavItem>
-        <button className="create-button" type="button" aria-label="Create">+</button>
-        <NavItem label="Messages">◍</NavItem>
-        <NavItem label="Profile">○</NavItem>
+        <NavItem label="Home" active><span>⌂</span></NavItem>
+        <NavItem label="Alerts"><Bell size={21} /></NavItem>
+        <button className="create-button" type="button" aria-label="Create"><Plus size={28} /></button>
+        <NavItem label="Messages"><MessageCircle size={21} /></NavItem>
+        <NavItem label="Profile"><UserRound size={21} /></NavItem>
       </nav>
     </main>
   );
 }
 
-function NavItem({ label, active, children }: { label: string; active?: string; children: React.ReactNode }) {
-  return <button type="button" className={`nav-item ${active ? "active" : ""}`}><span>{children}</span><small>{label}</small></button>;
+function NavItem({ label, active, children }: { label: string; active?: boolean; children: React.ReactNode }) {
+  return <button type="button" className={`nav-item ${active ? "active" : ""}`} aria-label={label}><span>{children}</span><small>{label}</small></button>;
 }
 
 function FeedSkeleton() {
