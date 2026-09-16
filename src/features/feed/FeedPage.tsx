@@ -4,8 +4,21 @@ import { useEffect, useState } from "react";
 import { getChronologicalFeed } from "./feed.service";
 import { PostCard } from "./components/PostCard";
 import { StoryStrip } from "./components/StoryStrip";
+import { ProfilePage } from "../profile/ProfilePage";
+
+type AppView = "feed" | "profile";
 
 export function FeedPage() {
+  const [view, setView] = useState<AppView>("feed");
+
+  if (view === "profile") {
+    return <ProfilePage onBack={() => setView("feed")} />;
+  }
+
+  return <FollowingFeed onOpenProfile={() => setView("profile")} />;
+}
+
+function FollowingFeed({ onOpenProfile }: { onOpenProfile: () => void }) {
   const [worldMenu, setWorldMenu] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
   const { data, isLoading, isError } = useQuery({
@@ -63,7 +76,7 @@ export function FeedPage() {
         <NavItem label="Alerts"><Bell size={21} /></NavItem>
         <button className="create-button" type="button" aria-label="Create"><Plus size={28} /></button>
         <NavItem label="Messages"><MessageCircle size={21} /></NavItem>
-        <NavItem label="Profile"><UserRound size={21} /></NavItem>
+        <button type="button" className="nav-item" aria-label="Profile" onClick={onOpenProfile}><span><UserRound size={21} /></span><small>Profile</small></button>
       </nav>
     </main>
   );
