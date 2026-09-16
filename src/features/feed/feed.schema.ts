@@ -1,18 +1,21 @@
 import { z } from "zod";
 
+const authorSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().url(),
+});
+
 export const feedPostSchema = z.object({
   id: z.string(),
-  author: z.object({
-    id: z.string(),
-    username: z.string(),
-    displayName: z.string(),
-    avatarUrl: z.string().url(),
-  }),
+  author: authorSchema,
   mediaUrl: z.string().url(),
   caption: z.string(),
   hashtags: z.array(z.string()),
   likeCount: z.number().int().nonnegative(),
   commentCount: z.number().int().nonnegative(),
+  saveCount: z.number().int().nonnegative(),
   shareCount: z.number().int().nonnegative(),
   viewCount: z.number().int().nonnegative(),
   location: z.string().optional(),
@@ -21,7 +24,7 @@ export const feedPostSchema = z.object({
 
 export const feedStorySchema = z.object({
   id: z.string(),
-  author: feedPostSchema.shape.author,
+  author: authorSchema,
   mediaUrl: z.string().url(),
   viewed: z.boolean(),
 });
