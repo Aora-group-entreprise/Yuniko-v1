@@ -1,10 +1,13 @@
 import type { ChronologicalFeed } from "./feed.schema";
-import { getInteractionEvents } from "../events/events.service";
+import { getInteractionEvents, recordInteraction } from "../events/events.service";
 import { rankFeedPosts } from "../../algorithms/feed-ranking";
 
 const LIKED_KEY = "yuniko.feed-liked.v1";
 const SAVED_KEY = "yuniko.feed-saved.v1";
 const SEEN_KEY = "yuniko.seen-posts.v1";
+const VIEWED_KEY = "yuniko.viewed-posts.v1";
+const VIEWER_COUNTRY_KEY = "yuniko.viewer-country.v1";
+const DEFAULT_VIEWER_COUNTRY = "MG";
 
 function readIds(key: string): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -18,6 +21,12 @@ function readIds(key: string): Set<string> {
   } catch {
     return new Set();
   }
+}
+
+function viewerCountry(): string {
+  if (typeof window === "undefined") return DEFAULT_VIEWER_COUNTRY;
+  const value = window.localStorage.getItem(VIEWER_COUNTRY_KEY)?.trim().toUpperCase();
+  return value || DEFAULT_VIEWER_COUNTRY;
 }
 
 function getAffinity(feed: ChronologicalFeed): Map<string, number> {
@@ -56,6 +65,18 @@ export function markPostSeen(postId: string): void {
   } catch {
     // Best effort only. Backend persistence will replace this boundary later.
   }
+
+  const viewed = readIds(VIEWED_KEY);
+  if (viewed.has(postId)) return;
+  viewed.add(postId);
+
+  try {
+    window.localStorage.setItem(VIEWED_KEY, JSON.stringify([...viewed].slice(-500)));
+  } catch {
+    // Best effort only.
+  }
+
+  recordInteraction("view", postId, undefined, { countryCode: viewerCountry() });
 }
 
 export async function getAlgorithmicFeed(feed: ChronologicalFeed): Promise<ChronologicalFeed> {
