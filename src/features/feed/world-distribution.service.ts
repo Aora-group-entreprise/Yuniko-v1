@@ -73,8 +73,10 @@ export function getCountryPerformance(postId: string): CountryPerformance[] {
 
     if (event.type === "view") current.views += 1;
     if (event.type === "like") current.likes += 1;
+    if (event.type === "unlike") current.likes = Math.max(0, current.likes - 1);
     if (event.type === "comment" || event.type === "reply") current.comments += 1;
     if (event.type === "save") current.saves += 1;
+    if (event.type === "unsave") current.saves = Math.max(0, current.saves - 1);
     if (event.type === "share") current.shares += 1;
 
     byCountry.set(countryCode, current);
