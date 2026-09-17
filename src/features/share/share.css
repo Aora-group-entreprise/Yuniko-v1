@@ -1,0 +1,11 @@
+.share-sheet-backdrop { position: fixed; inset: 0; z-index: 125; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.share-sheet { width: min(620px,100%); overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 22px 22px 0 0; background: #120e1e; box-shadow: 0 -20px 60px rgba(0,0,0,.48); }
+.share-sheet-header { min-height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px 0 18px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.share-sheet-header strong { font-family: 'Space Grotesk',sans-serif; font-size: 16px; }
+.share-sheet-header button { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 999px; color: rgba(255,255,255,.72); }
+.share-sheet-actions { padding: 14px; display: grid; gap: 8px; }
+.share-sheet-actions > button { min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,.05); color: rgba(255,255,255,.88); font-size: 13px; text-align: left; }
+.share-sheet-actions > button:hover { background: rgba(255,255,255,.09); }
+.share-sheet-link { display: flex; align-items: center; gap: 8px; padding: 10px 4px 2px; color: rgba(255,255,255,.35); font-size: 11px; overflow: hidden; }
+.share-sheet-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width:520px) { .share-sheet { border-radius: 18px 18px 0 0; } }
