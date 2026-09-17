@@ -9,7 +9,7 @@ import type { FollowStatus } from "../follow/follow.schema";
 
 type ListView = "followers" | "following" | "requests" | null;
 
-export function ProfilePage({ onBack }: { onBack: () => void }) {
+export function ProfilePage({ onBack, onOpenPost }: { onBack: () => void; onOpenPost: (postId: string) => void }) {
   const { data, isLoading, isError } = useQuery({ queryKey: ["profile", "sofia.park"], queryFn: () => getPublicProfile("sofia.park"), staleTime: 30_000 });
   const storedStatus = useFollowStore((state) => state.statusByProfile[data?.id ?? ""]);
   const setStatus = useFollowStore((state) => state.setStatus);
@@ -85,7 +85,7 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
         </div>
         <div className="profile-grid-header"><Grid3X3 size={18} /><span>Posts</span></div>
         <div className="profile-grid" aria-label={`${data.displayName}'s posts`}>
-          {data.posts.map((post) => <button key={post.id} type="button" className="profile-grid-item" aria-label={`Open post: ${post.caption}`}><img src={post.mediaUrl} alt="" loading="lazy" /></button>)}
+          {data.posts.map((post) => <button key={post.id} type="button" className="profile-grid-item" aria-label={`Open post: ${post.caption}`} onClick={() => onOpenPost(post.id)}><img src={post.mediaUrl} alt="" loading="lazy" /></button>)}
         </div>
       </section>
       <nav className="bottom-nav profile-bottom-nav" aria-label="Primary navigation">
