@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Bell, ChevronDown, Globe, MessageCircle, Plus, Search, UserPlus, UserRound, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getChronologicalFeed } from "./feed.service";
+import { getWorldFeed } from "./feed.service";
 import { getAlgorithmicFeed, markPostSeen } from "./feed-ranking.service";
 import { PostCard } from "./components/PostCard";
 import { StoryStrip } from "./components/StoryStrip";
@@ -30,7 +30,11 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
   const [worldMenu, setWorldMenu] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [unreadNotifications, setUnreadNotifications] = useState(() => getUnreadNotificationCount());
-  const { data, isLoading, isError } = useQuery({ queryKey: ["feed", "personalized"], queryFn: async () => getAlgorithmicFeed(await getChronologicalFeed()), staleTime: 30_000 });
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["feed", "world", "personalized"],
+    queryFn: async () => getAlgorithmicFeed(await getWorldFeed()),
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -53,7 +57,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
       {worldMenu && <div className="world-menu" role="menu"><button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><Globe size={13} />World Feed</button><button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><span>#</span>Trending tags</button></div>}
       <StoryStrip stories={data?.stories ?? []} />
       {!online && <div className="offline-bar"><WifiOff size={12} /><span>Offline mode</span></div>}
-      <section className="feed-viewport" data-testid="posts-feed" aria-label="Personalized feed">
+      <section className="feed-viewport" data-testid="posts-feed" aria-label="World Feed">
         {isLoading && <FeedSkeleton />}
         {isError && <div className="feed-state">Unable to load the feed.</div>}
         {!isLoading && !isError && data?.posts.map((post) => (
