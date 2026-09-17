@@ -28,7 +28,7 @@ export const useFeedInteractionStore = create<FeedInteractionState>((set) => ({
     const wasLiked = state.liked.includes(postId);
     const liked = wasLiked ? state.liked.filter((id) => id !== postId) : [...state.liked, postId];
     writeIds(LIKED_KEY, liked);
-    recordInteraction(wasLiked ? "unsave" : "like", postId);
+    recordInteraction(wasLiked ? "unsave" : "like", postId, undefined, { action: wasLiked ? "unlike" : "like" });
     return { liked, pendingLikes: state.pendingLikes.includes(postId) ? state.pendingLikes.filter((id) => id !== postId) : [...state.pendingLikes, postId] };
   }),
   toggleSave: (postId) => set((state) => {
