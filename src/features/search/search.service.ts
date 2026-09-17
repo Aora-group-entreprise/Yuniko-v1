@@ -1,5 +1,6 @@
 import { listPosts } from "../posts/post-read.service";
 import { followProfileSchema, type FollowProfile } from "../follow/follow.schema";
+import { getBlockedUserIds } from "../moderation/moderation.service";
 
 const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
 
@@ -14,8 +15,18 @@ export type SearchResults = { profiles: FollowProfile[]; posts: Awaited<ReturnTy
 export async function searchYuniko(query: string): Promise<SearchResults> {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return { profiles: [], posts: [] };
-  const matchedProfiles = profiles.filter((profile) => `${profile.username} ${profile.displayName}`.toLowerCase().includes(normalized)).map((profile) => followProfileSchema.parse(profile));
+
+  const blocked = new Set(getBlockedUserIds());
+  const matchedProfiles = profiles
+    .filter((profile) => !blocked.has(profile.id))
+    .filter((profile) => `${profile.username} ${profile.displayName}`.toLowerCase().includes(normalized))
+    .map((profile) => followProfileSchema.parse(profile));
+
   const posts = await listPosts();
-  const matchedPosts = posts.filter((post) => `${post.author.username} ${post.author.displayName} ${post.caption} ${post.hashtags.join(" ")}`.toLowerCase().includes(normalized));
+  const matchedPosts = posts.filter((post) =>
+    !blocked.has(post.author.id) &&
+    `${post.author.username} ${post.author.displayName} ${post.caption} ${post.hashtags.join(" ")}`.toLowerCase().includes(normalized),
+  );
+
   return { profiles: matchedProfiles, posts: matchedPosts };
 }
