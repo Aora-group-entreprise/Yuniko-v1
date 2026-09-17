@@ -40,6 +40,10 @@ function countryFromEvent(event: ReturnType<typeof getInteractionEvents>[number]
   return value || null;
 }
 
+function isDeletion(event: ReturnType<typeof getInteractionEvents>[number]): boolean {
+  return event.metadata?.action === "delete";
+}
+
 export function getWorldCohort(): string[] {
   if (typeof window === "undefined") return DEFAULT_COHORT;
   try {
@@ -69,12 +73,13 @@ export function getCountryPerformance(postId: string): CountryPerformance[] {
     };
 
     if (event.type === "view") current.views += 1;
-    if (event.type === "like") current.likes += 1;
+    if (event.type === "like" && !isDeletion(event)) current.likes += 1;
     if (event.type === "unlike") current.likes = Math.max(0, current.likes - 1);
-    if (event.type === "comment" || event.type === "reply") current.comments += 1;
-    if (event.type === "save") current.saves += 1;
+    if ((event.type === "comment" || event.type === "reply") && !isDeletion(event)) current.comments += 1;
+    if ((event.type === "comment" || event.type === "reply") && isDeletion(event)) current.comments = Math.max(0, current.comments - 1);
+    if (event.type === "save" && !isDeletion(event)) current.saves += 1;
     if (event.type === "unsave") current.saves = Math.max(0, current.saves - 1);
-    if (event.type === "share") current.shares += 1;
+    if (event.type === "share" && !isDeletion(event)) current.shares += 1;
 
     byCountry.set(countryCode, current);
   }
