@@ -3,6 +3,7 @@ import { MessageCircle, Send, Trash2, X } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Comment } from "../comment.schema";
 import { CURRENT_USER, useCommentsStore } from "../comments.store";
+import "./comments.css";
 
 function formatCommentDate(value: string): string {
   const date = new Date(value);
