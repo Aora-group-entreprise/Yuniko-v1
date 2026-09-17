@@ -1,6 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Grid3X3, Lock, MoreHorizontal, UserRound } from "lucide-react";
+import { ArrowLeft, Grid3X3, MoreHorizontal, UserRound } from "lucide-react";
+import { useEffect, useState } from "react";
 import { getPublicProfile } from "./profile.service";
+import { toggleFollow } from "../follow/follow.service";
+import { useFollowStore } from "../follow/follow.store";
+import type { FollowStatus } from "../follow/follow.schema";
 
 export function ProfilePage({ onBack }: { onBack: () => void }) {
   const { data, isLoading, isError } = useQuery({
@@ -8,9 +12,40 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
     queryFn: () => getPublicProfile("sofia.park"),
     staleTime: 30_000,
   });
+  const storedStatus = useFollowStore((state) => state.statusByProfile[data?.id ?? ""]);
+  const setStatus = useFollowStore((state) => state.setStatus);
+  const setPending = useFollowStore((state) => state.setPending);
+  const [followers, setFollowers] = useState(0);
+
+  useEffect(() => {
+    if (data) setFollowers(data.followerCount);
+  }, [data]);
 
   if (isLoading) return <ProfileShell><ProfileSkeleton /></ProfileShell>;
   if (isError || !data) return <ProfileShell><div className="profile-state">Unable to load profile.</div></ProfileShell>;
+
+  const followStatus = storedStatus ?? data.followStatus ?? "none";
+  const isFollowing = followStatus === "following";
+  const isRequested = followStatus === "requested";
+
+  async function handleFollow() {
+    if (followStatus === "self") return;
+    const previous = followStatus;
+    const optimistic: FollowStatus = isFollowing || isRequested ? "none" : data.isPrivate ? "requested" : "following";
+    setPending(data.id, true);
+    setStatus(data.id, optimistic);
+    setFollowers((count) => optimistic === "following" && previous !== "following" ? count + 1 : optimistic === "none" && previous === "following" ? Math.max(0, count - 1) : count);
+    try {
+      const next = await toggleFollow(data.id);
+      setStatus(data.id, next);
+      setFollowers((count) => next === "following" && previous !== "following" ? data.followerCount + 1 : next === "none" && previous === "following" ? Math.max(0, data.followerCount - 1) : count);
+    } catch {
+      setStatus(data.id, previous);
+      setFollowers(data.followerCount);
+    } finally {
+      setPending(data.id, false);
+    }
+  }
 
   return (
     <main className="profile-shell">
@@ -30,11 +65,13 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
 
           <div className="profile-stats" aria-label="Profile statistics">
             <Stat value={data.postCount} label="Posts" />
-            <Stat value={data.followerCount} label="Followers" />
+            <Stat value={followers} label="Followers" />
             <Stat value={data.followingCount} label="Following" />
           </div>
 
-          <button type="button" className="profile-follow-placeholder" disabled aria-disabled="true">Follow</button>
+          <button type="button" className={`profile-follow-button ${isFollowing ? "following" : ""} ${isRequested ? "requested" : ""}`} onClick={handleFollow}>
+            {isFollowing ? "Following" : isRequested ? "Requested" : "Follow"}
+          </button>
         </div>
 
         <div className="profile-grid-header"><Grid3X3 size={18} /><span>Posts</span></div>
