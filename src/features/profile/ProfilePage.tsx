@@ -18,7 +18,11 @@ export function ProfilePage({ onBack, onOpenPost }: { onBack: () => void; onOpen
   const [followers, setFollowers] = useState(0);
   const [listView, setListView] = useState<ListView>(null);
 
-  useEffect(() => { if (data) setFollowers(data.followerCount); }, [data]);
+  useEffect(() => {
+    if (!data) return;
+    setFollowers(data.followerCount);
+    setStatus(data.id, data.followStatus ?? "none");
+  }, [data, setStatus]);
 
   const followersQuery = useQuery({
     queryKey: ["follow", "followers", data?.id],
