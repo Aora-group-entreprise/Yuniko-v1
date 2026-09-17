@@ -2,6 +2,7 @@ import { notificationsStateSchema, notificationSchema, type Notification, type N
 import { getBlockedUserIds } from "../moderation/moderation.service";
 
 const KEY = "yuniko.notifications.v1";
+const CHANGE_EVENT = "yuniko:notifications-changed";
 const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
 
 const demoNotifications: Notification[] = [
@@ -25,7 +26,23 @@ function visible(items: Notification[]): Notification[] {
 
 function write(items: Notification[]): void {
   if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(KEY, JSON.stringify({ items: items.slice(0, 100) })); } catch { /* best effort */ }
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify({ items: items.slice(0, 100) }));
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+  } catch { /* best effort */ }
+}
+
+export function subscribeToNotifications(listener: () => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === KEY) listener();
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(CHANGE_EVENT, listener);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(CHANGE_EVENT, listener);
+  };
 }
 
 export async function getNotifications(): Promise<Notification[]> {
