@@ -10,9 +10,10 @@ import { CreatePostPage } from "../posts/CreatePostPage";
 import { PostDetailPage } from "../posts/PostDetailPage";
 import { NotificationsPage } from "../notifications/NotificationsPage";
 import { SearchPage } from "../search/SearchPage";
+import { MessagesPage } from "../messages/MessagesPage";
 import { getUnreadNotificationCount } from "../notifications/notifications.service";
 
-type AppView = "feed" | "profile" | "create" | "post" | "notifications" | "search";
+type AppView = "feed" | "profile" | "create" | "post" | "notifications" | "search" | "messages";
 
 export function FeedPage() {
   const [view, setView] = useState<AppView>("feed");
@@ -23,10 +24,11 @@ export function FeedPage() {
   if (view === "post" && selectedPostId) return <PostDetailPage postId={selectedPostId} onBack={() => setView("feed")} />;
   if (view === "notifications") return <NotificationsPage onBack={() => setView("feed")} />;
   if (view === "search") return <SearchPage onBack={() => setView("feed")} onOpenPost={(postId) => { setSelectedPostId(postId); setView("post"); }} />;
-  return <FollowingFeed onOpenProfile={() => setView("profile")} onOpenCreate={() => setView("create")} onOpenNotifications={() => setView("notifications")} onOpenSearch={() => setView("search")} />;
+  if (view === "messages") return <MessagesPage onBack={() => setView("feed")} />;
+  return <FollowingFeed onOpenProfile={() => setView("profile")} onOpenCreate={() => setView("create")} onOpenNotifications={() => setView("notifications")} onOpenSearch={() => setView("search")} onOpenMessages={() => setView("messages")} />;
 }
 
-function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpenSearch }: { onOpenProfile: () => void; onOpenCreate: () => void; onOpenNotifications: () => void; onOpenSearch: () => void }) {
+function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpenSearch, onOpenMessages }: { onOpenProfile: () => void; onOpenCreate: () => void; onOpenNotifications: () => void; onOpenSearch: () => void; onOpenMessages: () => void }) {
   const [worldMenu, setWorldMenu] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [unreadNotifications, setUnreadNotifications] = useState(() => getUnreadNotificationCount());
@@ -70,7 +72,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
         <NavItem label="Home" active><span>⌂</span></NavItem>
         <button type="button" className="nav-item notification-nav" aria-label="Notifications" onClick={onOpenNotifications}><span><Bell size={21} />{unreadNotifications > 0 && <b>{unreadNotifications > 99 ? "99+" : unreadNotifications}</b>}</span><small>Alerts</small></button>
         <button className="create-button" type="button" aria-label="Create" onClick={onOpenCreate}><Plus size={28} /></button>
-        <NavItem label="Messages"><MessageCircle size={21} /></NavItem>
+        <button type="button" className="nav-item" aria-label="Messages" onClick={onOpenMessages}><span><MessageCircle size={21} /></span><small>Messages</small></button>
         <button type="button" className="nav-item" aria-label="Profile" onClick={onOpenProfile}><span><UserRound size={21} /></span><small>Profile</small></button>
       </nav>
     </main>
