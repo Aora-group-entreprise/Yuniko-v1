@@ -1,4 +1,5 @@
 import { followProfileSchema, type FollowProfile, type FollowStatus } from "./follow.schema";
+import { getBlockedUserIds, isUserBlocked } from "../moderation/moderation.service";
 
 const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
 const FOLLOW_STATE_KEY = "yuniko.follow-state.v1";
@@ -32,11 +33,13 @@ function getStatus(profile: FollowProfile): FollowStatus {
 export async function getFollowProfile(username: string): Promise<FollowProfile> {
   const profile = demoProfiles.find((item) => item.username === username);
   if (!profile) throw new Error("Profile not found");
+  if (isUserBlocked(profile.id)) throw new Error("Profile unavailable");
   return followProfileSchema.parse({ ...profile, followStatus: getStatus(profile) });
 }
 
 export async function toggleFollow(profileId: string): Promise<FollowStatus> {
   if (profileId === currentUserId) return "self";
+  if (isUserBlocked(profileId)) throw new Error("Cannot follow a blocked user");
   const profile = demoProfiles.find((item) => item.id === profileId);
   if (!profile) throw new Error("Profile not found");
   const state = readState();
@@ -48,6 +51,7 @@ export async function toggleFollow(profileId: string): Promise<FollowStatus> {
 }
 
 export async function acceptFollowRequest(profileId: string): Promise<FollowStatus> {
+  if (isUserBlocked(profileId)) throw new Error("Cannot accept a blocked user");
   if (!demoProfiles.some((item) => item.id === profileId)) throw new Error("Profile not found");
   const state = readState();
   state[profileId] = "following";
@@ -56,6 +60,7 @@ export async function acceptFollowRequest(profileId: string): Promise<FollowStat
 }
 
 export async function rejectFollowRequest(profileId: string): Promise<FollowStatus> {
+  if (isUserBlocked(profileId)) throw new Error("Cannot act on a blocked user");
   if (!demoProfiles.some((item) => item.id === profileId)) throw new Error("Profile not found");
   const state = readState();
   state[profileId] = "none";
@@ -64,7 +69,8 @@ export async function rejectFollowRequest(profileId: string): Promise<FollowStat
 }
 
 export function getFollowingProfileIds(): string[] {
-  return demoProfiles.filter((profile) => getStatus(profile) === "following").map((profile) => profile.id);
+  const blocked = new Set(getBlockedUserIds());
+  return demoProfiles.filter((profile) => !blocked.has(profile.id) && getStatus(profile) === "following").map((profile) => profile.id);
 }
 
 export function getFollowActorId(): string { return currentUserId; }
