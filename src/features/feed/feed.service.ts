@@ -2,6 +2,7 @@ import { chronologicalFeedSchema, type ChronologicalFeed } from "./feed.schema";
 import { listPosts } from "../posts/post-read.service";
 import { getFollowingProfileIds } from "../follow/follow.service";
 import { isPostDistributedToCountry } from "./world-distribution.service";
+import { getBlockedUserIds } from "../moderation/moderation.service";
 
 const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
 const VIEWER_COUNTRY_KEY = "yuniko.viewer-country.v1";
@@ -11,6 +12,12 @@ function viewerCountry(): string {
   if (typeof window === "undefined") return DEFAULT_VIEWER_COUNTRY;
   const value = window.localStorage.getItem(VIEWER_COUNTRY_KEY)?.trim().toUpperCase();
   return value || DEFAULT_VIEWER_COUNTRY;
+}
+
+function removeBlockedPosts(posts: ChronologicalFeed["posts"]): ChronologicalFeed["posts"] {
+  const blocked = new Set(getBlockedUserIds());
+  if (blocked.size === 0) return posts;
+  return posts.filter((post) => !blocked.has(post.author.id));
 }
 
 const demoStories: ChronologicalFeed["stories"] = [
@@ -23,8 +30,8 @@ const demoStories: ChronologicalFeed["stories"] = [
 export async function getChronologicalFeed(): Promise<ChronologicalFeed> {
   const [posts, followingIds] = await Promise.all([listPosts(), Promise.resolve(getFollowingProfileIds())]);
   const following = new Set(followingIds);
-  const visiblePosts = posts.filter((post) => following.has(post.author.id));
-  const visibleStories = demoStories.filter((story) => following.has(story.author.id));
+  const visiblePosts = removeBlockedPosts(posts.filter((post) => following.has(post.author.id)));
+  const visibleStories = demoStories.filter((story) => following.has(story.author.id) && !getBlockedUserIds().includes(story.author.id));
 
   return chronologicalFeedSchema.parse({ stories: visibleStories, posts: visiblePosts });
 }
@@ -37,14 +44,15 @@ export async function getChronologicalFeed(): Promise<ChronologicalFeed> {
  * view telemetry, keeping distribution and measurement aligned.
  */
 export function getWorldDistributedPosts(posts: ChronologicalFeed["posts"]): ChronologicalFeed["posts"] {
-  return posts.filter((post) => isPostDistributedToCountry(post.id, viewerCountry()));
+  return removeBlockedPosts(posts.filter((post) => isPostDistributedToCountry(post.id, viewerCountry())));
 }
 
 /** World Feed: progressive distribution happens before personalized ranking. */
 export async function getWorldFeed(): Promise<ChronologicalFeed> {
   const posts = await listPosts();
+  const blocked = new Set(getBlockedUserIds());
   return chronologicalFeedSchema.parse({
-    stories: demoStories,
+    stories: demoStories.filter((story) => !blocked.has(story.author.id)),
     posts: getWorldDistributedPosts(posts),
   });
 }
