@@ -1,4 +1,5 @@
 import { notificationsStateSchema, notificationSchema, type Notification, type NotificationType } from "./notification.schema";
+import { getBlockedUserIds } from "../moderation/moderation.service";
 
 const KEY = "yuniko.notifications.v1";
 const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
@@ -17,16 +18,21 @@ function read(): Notification[] {
   } catch { return demoNotifications; }
 }
 
+function visible(items: Notification[]): Notification[] {
+  const blocked = new Set(getBlockedUserIds());
+  return items.filter((item) => !blocked.has(item.actorId));
+}
+
 function write(items: Notification[]): void {
   if (typeof window === "undefined") return;
   try { window.localStorage.setItem(KEY, JSON.stringify({ items: items.slice(0, 100) })); } catch { /* best effort */ }
 }
 
 export async function getNotifications(): Promise<Notification[]> {
-  return read().sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  return visible(read()).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
-export function getUnreadNotificationCount(): number { return read().filter((item) => !item.read).length; }
+export function getUnreadNotificationCount(): number { return visible(read()).filter((item) => !item.read).length; }
 
 export async function markNotificationRead(id: string): Promise<void> {
   write(read().map((item) => item.id === id ? { ...item, read: true } : item));
