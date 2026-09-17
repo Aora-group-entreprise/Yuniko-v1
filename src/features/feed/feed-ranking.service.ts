@@ -10,7 +10,11 @@ function readIds(key: string): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
     const parsed = JSON.parse(window.localStorage.getItem(key) ?? "[]");
-    return new Set(Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : []);
+    return new Set(
+      Array.isArray(parsed)
+        ? parsed.filter((value): value is string => typeof value === "string")
+        : [],
+    );
   } catch {
     return new Set();
   }
@@ -19,20 +23,39 @@ function readIds(key: string): Set<string> {
 function getAffinity(feed: ChronologicalFeed): Map<string, number> {
   const authorByPost = new Map(feed.posts.map((post) => [post.id, post.author.id]));
   const affinity = new Map<string, number>();
+
   for (const event of getInteractionEvents()) {
     const authorId = authorByPost.get(event.postId);
     if (!authorId) continue;
-    const weight = event.type === "like" ? 3 : event.type === "comment" || event.type === "reply" ? 4 : event.type === "save" ? 5 : event.type === "share" ? 5 : event.type === "unlike" || event.type === "unsave" ? -2 : 1;
+
+    const weight =
+      event.type === "like"
+        ? 3
+        : event.type === "comment" || event.type === "reply"
+          ? 4
+          : event.type === "save" || event.type === "share"
+            ? 5
+            : event.type === "unlike" || event.type === "unsave"
+              ? -2
+              : 1;
+
     affinity.set(authorId, Math.max(0, (affinity.get(authorId) ?? 0) + weight));
   }
+
   return affinity;
 }
 
 export function markPostSeen(postId: string): void {
   if (typeof window === "undefined") return;
   const seen = readIds(SEEN_KEY);
+  seen.delete(postId);
   seen.add(postId);
-  try { window.localStorage.setItem(SEEN_KEY, JSON.stringify([...seen].slice(-500))); } catch { /* best effort */ }
+
+  try {
+    window.localStorage.setItem(SEEN_KEY, JSON.stringify([...seen].slice(-500)));
+  } catch {
+    // Best effort only. Backend persistence will replace this boundary later.
+  }
 }
 
 export async function getAlgorithmicFeed(feed: ChronologicalFeed): Promise<ChronologicalFeed> {
