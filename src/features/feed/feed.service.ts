@@ -1,5 +1,6 @@
 import { chronologicalFeedSchema, type ChronologicalFeed } from "./feed.schema";
 import { listPosts } from "../posts/post-read.service";
+import { getFollowingProfileIds } from "../follow/follow.service";
 
 const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
 
@@ -11,11 +12,14 @@ const demoStories: ChronologicalFeed["stories"] = [
 
 /**
  * Phase 2 boundary: chronological following feed.
- * UI calls this service; the service is the seam for the future server function.
- * Post records come from the shared post read boundary so feed and profile do
- * not maintain separate copies of post data.
+ * In the frontend-only build, following relationships are persisted locally;
+ * the final server implementation will enforce the same filter server-side.
  */
 export async function getChronologicalFeed(): Promise<ChronologicalFeed> {
-  const posts = await listPosts();
-  return chronologicalFeedSchema.parse({ stories: demoStories, posts });
+  const [posts, followingIds] = await Promise.all([listPosts(), Promise.resolve(getFollowingProfileIds())]);
+  const following = new Set(followingIds);
+  const visiblePosts = posts.filter((post) => following.has(post.author.id));
+  const visibleStories = demoStories.filter((story) => following.has(story.author.id));
+
+  return chronologicalFeedSchema.parse({ stories: visibleStories, posts: visiblePosts });
 }
