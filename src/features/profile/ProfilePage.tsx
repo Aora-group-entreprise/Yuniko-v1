@@ -6,8 +6,9 @@ import { acceptFollowRequest, rejectFollowRequest, toggleFollow } from "../follo
 import { listFollowRequests, listFollowers, listFollowing, removeFollower, type FollowListItem } from "../follow/follow-lists.service";
 import { useFollowStore } from "../follow/follow.store";
 import type { FollowStatus } from "../follow/follow.schema";
+import { ModerationSheet } from "../moderation/ModerationSheet";
 
-type ListView = "followers" | "following" | "requests" | null;
+ type ListView = "followers" | "following" | "requests" | null;
 
 export function ProfilePage({ onBack, onOpenPost }: { onBack: () => void; onOpenPost: (postId: string) => void }) {
   const { data, isLoading, isError } = useQuery({ queryKey: ["profile", "sofia.park"], queryFn: () => getPublicProfile("sofia.park"), staleTime: 30_000 });
@@ -17,6 +18,7 @@ export function ProfilePage({ onBack, onOpenPost }: { onBack: () => void; onOpen
   const isPending = useFollowStore((state) => state.pendingProfiles.includes(data?.id ?? ""));
   const [followers, setFollowers] = useState(0);
   const [listView, setListView] = useState<ListView>(null);
+  const [moderationOpen, setModerationOpen] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -70,7 +72,7 @@ export function ProfilePage({ onBack, onOpenPost }: { onBack: () => void; onOpen
       <header className="profile-header">
         <button type="button" className="profile-header-button" aria-label="Back to feed" onClick={onBack}><ArrowLeft size={21} /></button>
         <span className="profile-header-name">{data.username}</span>
-        <button type="button" className="profile-header-button" aria-label="More profile options"><MoreHorizontal size={22} /></button>
+        <button type="button" className="profile-header-button" aria-label="More profile options" onClick={() => setModerationOpen(true)}><MoreHorizontal size={22} /></button>
       </header>
       <section className="profile-scroll">
         <div className="profile-identity">
@@ -100,6 +102,7 @@ export function ProfilePage({ onBack, onOpenPost }: { onBack: () => void; onOpen
         <button type="button" className="nav-item active" aria-label="Profile"><span><UserRound size={21} /></span><small>Profile</small></button>
       </nav>
       {listView && <FollowListSheet type={listView} items={listView === "followers" ? followersQuery.data ?? [] : listView === "following" ? followingQuery.data ?? [] : requestsQuery.data ?? []} loading={listView === "followers" ? followersQuery.isLoading : listView === "following" ? followingQuery.isLoading : requestsQuery.isLoading} onClose={() => setListView(null)} onRemove={listView === "followers" ? async (id) => { await removeFollower(id); await followersQuery.refetch(); } : undefined} onAccept={listView === "requests" ? async (id) => { await acceptFollowRequest(id); await requestsQuery.refetch(); } : undefined} onReject={listView === "requests" ? async (id) => { await rejectFollowRequest(id); await requestsQuery.refetch(); } : undefined} />}
+      {moderationOpen && <ModerationSheet targetType="user" targetId={data.id} targetName={`@${data.username}`} onClose={() => setModerationOpen(false)} />}
     </main>
   );
 }
