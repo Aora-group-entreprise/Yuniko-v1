@@ -1,0 +1,146 @@
+import { getInteractionEvents } from "../events/events.service";
+import {
+  DISTRIBUTION_RULES,
+  DISTRIBUTION_STAGES,
+  normalizeCountryCodes,
+  type DistributionStage,
+} from "../../algorithms/feed-distribution";
+
+const STATE_KEY = "yuniko.post-distribution.v1";
+const DEFAULT_COHORT = ["MG", "FR", "US", "BR", "IN", "NG", "JP"];
+
+type DistributionState = Record<string, DistributionStage>;
+
+type CountryPerformance = {
+  countryCode: string;
+  views: number;
+  likes: number;
+  comments: number;
+  saves: number;
+  shares: number;
+};
+
+function readState(): DistributionState {
+  if (typeof window === "undefined") return {};
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(STATE_KEY) ?? "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([, value]) => value === 3 || value === 5 || value === 7 || value === "global"),
+    ) as DistributionState;
+  } catch {
+    return {};
+  }
+}
+
+function writeState(state: DistributionState): void {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch { /* best effort */ }
+}
+
+function countryFromEvent(event: ReturnType<typeof getInteractionEvents>[number]): string | null {
+  const value = event.metadata?.countryCode?.trim().toUpperCase();
+  return value || null;
+}
+
+export function getWorldCohort(): string[] {
+  if (typeof window === "undefined") return DEFAULT_COHORT;
+  try {
+    const raw = JSON.parse(window.localStorage.getItem("yuniko.world-cohort.v1") ?? "[]");
+    if (!Array.isArray(raw)) return DEFAULT_COHORT;
+    const cohort = normalizeCountryCodes(raw.filter((value): value is string => typeof value === "string"));
+    return cohort.length >= 3 ? cohort : DEFAULT_COHORT;
+  } catch {
+    return DEFAULT_COHORT;
+  }
+}
+
+export function getCountryPerformance(postId: string): CountryPerformance[] {
+  const byCountry = new Map<string, CountryPerformance>();
+
+  for (const event of getInteractionEvents(postId)) {
+    const countryCode = countryFromEvent(event);
+    if (!countryCode) continue;
+
+    const current = byCountry.get(countryCode) ?? {
+      countryCode,
+      views: 0,
+      likes: 0,
+      comments: 0,
+      saves: 0,
+      shares: 0,
+    };
+
+    if (event.type === "view") current.views += 1;
+    if (event.type === "like") current.likes += 1;
+    if (event.type === "comment" || event.type === "reply") current.comments += 1;
+    if (event.type === "save") current.saves += 1;
+    if (event.type === "share") current.shares += 1;
+
+    byCountry.set(countryCode, current);
+  }
+
+  return [...byCountry.values()];
+}
+
+function cohortStrength(postId: string, countries: string[]): number {
+  const allowed = new Set(normalizeCountryCodes(countries));
+  const performance = getCountryPerformance(postId).filter((item) => allowed.has(item.countryCode));
+  const views = performance.reduce((sum, item) => sum + item.views, 0);
+  if (views < DISTRIBUTION_RULES.minimumViewsForPromotion) return 0;
+
+  const weightedActions = performance.reduce(
+    (sum, item) => sum + item.likes + item.comments * 2 + item.saves * 3 + item.shares * 3,
+    0,
+  );
+  return weightedActions / views;
+}
+
+function nextStage(stage: DistributionStage): DistributionStage {
+  if (stage === 3) return 5;
+  if (stage === 5) return 7;
+  if (stage === 7) return "global";
+  return "global";
+}
+
+/**
+ * Promotion is deliberately sequential: 3 -> 5 -> 7 -> global.
+ * A post can advance only one stage per evaluation and the previous countries
+ * remain included because the cohort is always taken from its beginning.
+ */
+export function getPostDistributionStage(postId: string): DistributionStage {
+  const state = readState();
+  const current = state[postId] ?? 3;
+  if (current === "global") return current;
+
+  const cohort = getWorldCohort();
+  const activeCountries = cohort.slice(0, current);
+  const strength = cohortStrength(postId, activeCountries);
+
+  if (strength < DISTRIBUTION_RULES.strongAudienceRate) {
+    if (!state[postId]) {
+      state[postId] = 3;
+      writeState(state);
+    }
+    return current;
+  }
+
+  const promoted = nextStage(current);
+  state[postId] = promoted;
+  writeState(state);
+  return promoted;
+}
+
+export function getPostDistributionCountries(postId: string): string[] | null {
+  const stage = getPostDistributionStage(postId);
+  if (stage === "global") return null;
+  return getWorldCohort().slice(0, stage);
+}
+
+export function isPostDistributedToCountry(postId: string, countryCode: string): boolean {
+  const normalizedCountry = countryCode.trim().toUpperCase();
+  const countries = getPostDistributionCountries(postId);
+  return countries === null || countries.includes(normalizedCountry);
+}
+
+export { DISTRIBUTION_STAGES };
