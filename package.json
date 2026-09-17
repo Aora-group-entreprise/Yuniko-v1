@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.85.5",
+    "blurhash": "^2.0.5",
     "browser-image-compression": "^2.0.2",
     "framer-motion": "^12.23.12",
     "lucide-react": "^0.468.0",
