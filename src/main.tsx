@@ -9,6 +9,7 @@ import "./phase4.css";
 import "./messages.css";
 import "./stories.css";
 import "./security.css";
+import "./settings.css";
 import "./phase10.css";
 
 const queryClient = new QueryClient({
