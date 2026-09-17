@@ -9,6 +9,7 @@ export function CollectionsSheet({ postId, onClose }: { postId: string; onClose:
   const savedPostIds = useSavesStore((state) => state.savedPostIds);
   const toggleCollection = useSavesStore((state) => state.toggleCollection);
   const addCollection = useSavesStore((state) => state.addCollection);
+  const isInCollection = useSavesStore((state) => state.isInCollection);
   const [name, setName] = useState("");
   const saved = savedPostIds.includes(postId);
 
@@ -26,9 +27,7 @@ export function CollectionsSheet({ postId, onClose }: { postId: string; onClose:
         </header>
         <div className="collections-list">
           {collections.map((collection) => {
-            const state = useSavesStore.getState();
-            const savedRecord = state.savedPostIds.includes(postId);
-            const selected = savedRecord && (collection.id === DEFAULT_COLLECTION_ID || true);
+            const selected = isInCollection(postId, collection.id);
             return (
               <button key={collection.id} type="button" className="collection-row" onClick={() => toggleCollection(postId, collection.id)}>
                 <span className="collection-icon">{collection.id === DEFAULT_COLLECTION_ID ? "★" : "▦"}</span>
