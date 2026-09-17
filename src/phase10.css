@@ -47,6 +47,48 @@ img {
   padding-bottom: calc(80px + var(--yuniko-safe-bottom));
 }
 
+.phase10-error-boundary {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: #0b0d12;
+  color: #f5f7fb;
+  text-align: center;
+}
+
+.phase10-error-boundary__card {
+  width: min(100%, 420px);
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.phase10-error-boundary__card h1 {
+  margin: 0 0 10px;
+  font-size: 20px;
+}
+
+.phase10-error-boundary__card p {
+  margin: 0 0 20px;
+  color: rgba(245, 247, 251, 0.72);
+  line-height: 1.5;
+}
+
+.phase10-error-boundary__button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  color: #0b0d12;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 @media (max-width: 480px) {
   .feed-slide {
     padding-left: 0;
