@@ -1,20 +1,28 @@
 import { useState } from "react";
-import { Bookmark, Eye, Heart, MessageCircle, MoreHorizontal, Share2 } from "lucide-react";
+import { Bookmark, Eye, FolderPlus, Heart, MessageCircle, MoreHorizontal, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { FeedPost } from "../feed.schema";
 import { useFeedInteractionStore } from "../feed.store";
 import { CommentsSheet } from "../../comments/components/CommentsSheet";
 import { useCommentsStore } from "../../comments/comments.store";
+import "../../comments/components/comments.css";
+import { CollectionsSheet } from "../../saves/CollectionsSheet";
+import { useSavesStore } from "../../saves/saves.store";
+import "../../saves/saves.css";
+import { ShareSheet } from "../../share/ShareSheet";
+import "../../share/share.css";
 
 const GRADIENT = "linear-gradient(135deg,#ff006e 0%,#8b00ff 100%)";
 
 export function PostCard({ post }: { post: FeedPost }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [collectionsOpen, setCollectionsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const liked = useFeedInteractionStore((state) => state.liked.includes(post.id));
-  const saved = useFeedInteractionStore((state) => state.saved.includes(post.id));
+  const saved = useSavesStore((state) => state.savedPostIds.includes(post.id));
   const localCommentCount = useCommentsStore((state) => state.comments.filter((comment) => comment.postId === post.id).length);
   const toggleLike = useFeedInteractionStore((state) => state.toggleLike);
-  const toggleSave = useFeedInteractionStore((state) => state.toggleSave);
+  const toggleSave = useSavesStore((state) => state.toggleSave);
 
   return (
     <>
@@ -31,12 +39,19 @@ export function PostCard({ post }: { post: FeedPost }) {
           <ActionButton label={String(post.commentCount + localCommentCount)} onClick={() => setCommentsOpen(true)}>
             <MessageCircle size={25} strokeWidth={1.8} />
           </ActionButton>
-          <ActionButton label={String(post.shareCount)}>
+          <ActionButton label={String(post.shareCount)} onClick={() => setShareOpen(true)}>
             <Share2 size={25} strokeWidth={1.8} />
           </ActionButton>
-          <ActionButton label={saved ? "Saved" : "Save"} onClick={() => toggleSave(post.id)}>
-            <Bookmark size={25} className={saved ? "filled-save" : ""} strokeWidth={1.8} />
-          </ActionButton>
+          <div className="post-save-group">
+            <ActionButton label={saved ? "Saved" : "Save"} onClick={() => toggleSave(post.id)}>
+              <Bookmark size={25} className={saved ? "filled-save" : ""} strokeWidth={1.8} />
+            </ActionButton>
+            {saved && (
+              <motion.button whileTap={{ scale: 0.88 }} type="button" className="post-collection-button" aria-label="Organiser dans une collection" onClick={() => setCollectionsOpen(true)}>
+                <FolderPlus size={15} />
+              </motion.button>
+            )}
+          </div>
         </div>
 
         <div className="post-copy">
@@ -54,18 +69,15 @@ export function PostCard({ post }: { post: FeedPost }) {
         </div>
       </article>
       {commentsOpen && <CommentsSheet postId={post.id} onClose={() => setCommentsOpen(false)} />}
+      {collectionsOpen && <CollectionsSheet postId={post.id} onClose={() => setCollectionsOpen(false)} />}
+      {shareOpen && <ShareSheet postId={post.id} onClose={() => setShareOpen(false)} />}
     </>
   );
 }
 
 function ActionButton({ label, onClick, children }: { label: string; onClick?: () => void; children: React.ReactNode }) {
   return (
-    <motion.button
-      whileTap={{ scale: 0.88 }}
-      type="button"
-      className="post-action"
-      onClick={onClick}
-    >
+    <motion.button whileTap={{ scale: 0.88 }} type="button" className="post-action" onClick={onClick}>
       <span>{children}</span>
       <small>{label}</small>
     </motion.button>
