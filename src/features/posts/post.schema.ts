@@ -13,12 +13,18 @@ export const postMediaSchema = z.object({
   status: z.enum(["uploading", "ready", "failed"]),
 });
 
+/** Local composer state may exist before the user selects media. */
 export const postDraftSchema = z.object({
   id: z.string(),
   caption: z.string().max(2200),
   visibility: postVisibilitySchema,
-  media: z.array(postMediaSchema).min(1).max(10),
+  media: z.array(postMediaSchema).max(10),
   createdAt: z.string().datetime(),
+});
+
+/** Publishing is only valid once at least one media item is present. */
+export const publishPostSchema = postDraftSchema.extend({
+  media: z.array(postMediaSchema).min(1).max(10),
 });
 
 export type PostVisibility = z.infer<typeof postVisibilitySchema>;
