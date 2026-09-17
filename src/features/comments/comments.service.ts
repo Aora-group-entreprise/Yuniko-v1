@@ -50,5 +50,19 @@ export function createLocalComment(input: {
 }
 
 export function deleteLocalComment(commentId: string): void {
-  writeComments(readComments().filter((comment) => comment.id !== commentId));
+  const comments = readComments();
+  const idsToDelete = new Set([commentId]);
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    for (const comment of comments) {
+      if (comment.parentId && idsToDelete.has(comment.parentId) && !idsToDelete.has(comment.id)) {
+        idsToDelete.add(comment.id);
+        changed = true;
+      }
+    }
+  }
+
+  writeComments(comments.filter((comment) => !idsToDelete.has(comment.id)));
 }
