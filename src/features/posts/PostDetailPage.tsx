@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Check, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { PostCard } from "../feed/components/PostCard";
 import { deletePost, getPostById, updatePostCaption } from "./post-read.service";
@@ -18,6 +18,7 @@ export function PostDetailPage({ postId, onBack }: { postId: string; onBack: () 
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -27,6 +28,12 @@ export function PostDetailPage({ postId, onBack }: { postId: string; onBack: () 
     setCaption(data.caption);
     setEditError(null);
     setEditing(true);
+  }
+
+  function openDeleteConfirm() {
+    setMenuOpen(false);
+    setDeleteError(null);
+    setConfirmDeleteOpen(true);
   }
 
   async function saveCaption() {
@@ -59,9 +66,11 @@ export function PostDetailPage({ postId, onBack }: { postId: string; onBack: () 
         queryClient.invalidateQueries({ queryKey: ["feed", "following", "chronological"] }),
         queryClient.invalidateQueries({ queryKey: ["profile", "sofia.park"] }),
       ]);
+      setConfirmDeleteOpen(false);
       onBack();
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : "Unable to delete this post.");
+    } finally {
       setDeleting(false);
     }
   }
@@ -77,7 +86,7 @@ export function PostDetailPage({ postId, onBack }: { postId: string; onBack: () 
             {menuOpen && (
               <div className="post-detail-menu" role="menu">
                 <button type="button" role="menuitem" onClick={openEditor}><Pencil size={15} /> Edit post</button>
-                <button type="button" role="menuitem" className="danger" onClick={() => { setMenuOpen(false); setDeleteError(null); setDeleting(false); }}><Trash2 size={15} /> Delete post</button>
+                <button type="button" role="menuitem" className="danger" onClick={openDeleteConfirm}><Trash2 size={15} /> Delete post</button>
               </div>
             )}
           </div>
@@ -105,35 +114,21 @@ export function PostDetailPage({ postId, onBack }: { postId: string; onBack: () 
           </section>
         </div>
       )}
-      {deleteError && !deleting && (
-        <div className="post-delete-backdrop" role="presentation" onClick={() => setDeleteError(null)}>
-          <section className="post-delete-sheet" role="alertdialog" aria-modal="true" aria-label="Delete post" onClick={(event) => event.stopPropagation()}>
-            <div className="post-delete-icon"><AlertTriangle size={24} /></div>
-            <h2>Delete post?</h2>
-            <p>{deleteError}</p>
-            <button type="button" className="post-delete-cancel" onClick={() => setDeleteError(null)}>Close</button>
-          </section>
-        </div>
-      )}
-      {menuOpen && <div className="post-detail-menu-dismiss" aria-hidden="true" onClick={() => setMenuOpen(false)} />}
-      {data?.author.id === "1" && !editing && !deleteError && !menuOpen && deleting === false && false}
-      {deleteConfirmVisible(data, deleting) && (
-        <div className="post-delete-backdrop" role="presentation" onClick={() => !deleting && setDeleteError(null)}>
+      {confirmDeleteOpen && (
+        <div className="post-delete-backdrop" role="presentation" onClick={() => !deleting && setConfirmDeleteOpen(false)}>
           <section className="post-delete-sheet" role="alertdialog" aria-modal="true" aria-label="Delete post" onClick={(event) => event.stopPropagation()}>
             <div className="post-delete-icon"><Trash2 size={24} /></div>
             <h2>Delete post?</h2>
             <p>This will remove the post from your profile and feed. The post will be soft-deleted and can be physically purged after 30 days.</p>
+            {deleteError && <p className="post-delete-error" role="alert">{deleteError}</p>}
             <div className="post-delete-actions">
-              <button type="button" className="post-delete-cancel" disabled={deleting} onClick={() => setDeleteError(null)}>Cancel</button>
+              <button type="button" className="post-delete-cancel" disabled={deleting} onClick={() => setConfirmDeleteOpen(false)}>Cancel</button>
               <button type="button" className="post-delete-confirm" disabled={deleting} onClick={() => void confirmDelete()}>{deleting ? "Deleting…" : "Delete"}</button>
             </div>
           </section>
         </div>
       )}
+      {menuOpen && <button type="button" className="post-detail-menu-dismiss" aria-label="Close post menu" onClick={() => setMenuOpen(false)} />}
     </main>
   );
-}
-
-function deleteConfirmVisible(data: { author: { id: string } } | undefined, deleting: boolean) {
-  return Boolean(data?.author.id === "1" && deleting);
 }
