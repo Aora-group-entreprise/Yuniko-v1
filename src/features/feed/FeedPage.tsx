@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Bell, ChevronDown, Globe, MessageCircle, Plus, Search, UserPlus, UserRound, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getChronologicalFeed } from "./feed.service";
+import { getAlgorithmicFeed } from "./feed-ranking.service";
 import { PostCard } from "./components/PostCard";
 import { StoryStrip } from "./components/StoryStrip";
 import { ProfilePage } from "../profile/ProfilePage";
@@ -19,7 +20,7 @@ export function FeedPage() {
 
   if (view === "profile") return <ProfilePage onBack={() => setView("feed")} onOpenPost={(postId) => { setSelectedPostId(postId); setView("post"); }} />;
   if (view === "create") return <CreatePostPage onBack={() => setView("feed")} />;
-  if (view === "post" && selectedPostId) return <PostDetailPage postId={selectedPostId} onBack={() => setView("profile")} />;
+  if (view === "post" && selectedPostId) return <PostDetailPage postId={selectedPostId} onBack={() => setView("feed")} />;
   if (view === "notifications") return <NotificationsPage onBack={() => setView("feed")} />;
   if (view === "search") return <SearchPage onBack={() => setView("feed")} onOpenPost={(postId) => { setSelectedPostId(postId); setView("post"); }} />;
   return <FollowingFeed onOpenProfile={() => setView("profile")} onOpenCreate={() => setView("create")} onOpenNotifications={() => setView("notifications")} onOpenSearch={() => setView("search")} />;
@@ -29,7 +30,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
   const [worldMenu, setWorldMenu] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [unreadNotifications, setUnreadNotifications] = useState(() => getUnreadNotificationCount());
-  const { data, isLoading, isError } = useQuery({ queryKey: ["feed", "following", "chronological"], queryFn: getChronologicalFeed, staleTime: 30_000 });
+  const { data, isLoading, isError } = useQuery({ queryKey: ["feed", "personalized"], queryFn: async () => getAlgorithmicFeed(await getChronologicalFeed()), staleTime: 30_000 });
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -39,7 +40,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
     const refresh = () => setUnreadNotifications(getUnreadNotificationCount());
     window.addEventListener("storage", refresh);
     const timer = window.setInterval(refresh, 1000);
-    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); window.removeEventListener("storage", refresh); window.clearInterval(timer); };
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); window.clearInterval(timer); };
   }, []);
 
   return (
@@ -52,7 +53,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
       {worldMenu && <div className="world-menu" role="menu"><button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><Globe size={13} />World Feed</button><button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><span>#</span>Trending tags</button></div>}
       <StoryStrip stories={data?.stories ?? []} />
       {!online && <div className="offline-bar"><WifiOff size={12} /><span>Offline mode</span></div>}
-      <section className="feed-viewport" data-testid="posts-feed" aria-label="Following feed">
+      <section className="feed-viewport" data-testid="posts-feed" aria-label="Personalized feed">
         {isLoading && <FeedSkeleton />}
         {isError && <div className="feed-state">Unable to load the feed.</div>}
         {!isLoading && !isError && data?.posts.map((post) => <div key={post.id} className="feed-slide"><PostCard post={post} /></div>)}
