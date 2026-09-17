@@ -18,8 +18,11 @@ function freshness(createdAt: string, now: number): number {
 }
 
 function engagement(post: FeedPost): number {
-  const raw = post.likeCount + post.commentCount * 2 + post.saveCount * 3 + post.shareCount * 3;
-  return Math.min(1, Math.log1p(Math.max(0, raw)) / Math.log1p(10_000));
+  const actions = post.likeCount + post.commentCount * 2 + post.saveCount * 3 + post.shareCount * 3;
+  const actionSignal = Math.log1p(Math.max(0, actions)) / Math.log1p(10_000);
+  const exposure = Math.max(1, post.viewCount);
+  const efficiency = Math.min(1, actions / exposure);
+  return Math.min(1, actionSignal * 0.7 + efficiency * 0.3);
 }
 
 function affinityScore(authorId: string, affinityByAuthor: Map<string, number>): number {
