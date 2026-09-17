@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FeedPage } from "./features/feed/FeedPage";
 import "./styles.css";
+import "./phase4.css";
 
 const queryClient = new QueryClient();
 
