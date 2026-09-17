@@ -30,10 +30,6 @@ const demoPosts: PostRecord[] = [
   { id: "p3", author: { id: "3", username: "lina.rose", displayName: "Lina Rose", avatarUrl: `${REFERENCE_MEDIA}/scene-flower.jpg` }, mediaUrl: `${REFERENCE_MEDIA}/scene-flower.jpg`, caption: "Tiny worlds hiding in plain sight.", hashtags: ["#softfocus"], likeCount: 634, commentCount: 19, saveCount: 42, shareCount: 8, viewCount: 3100, location: "Lisbon, Portugal", createdAt: "2026-09-16T15:00:00.000Z" },
 ];
 
-/**
- * Phase 2 read boundary for posts. It is intentionally backed by demo data
- * until Phase 1 Postgres/RLS exists. UI code consumes this service, not storage.
- */
 export async function listPosts(): Promise<PostRecord[]> {
   return postRecordSchema.array().parse([...demoPosts].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
 }
@@ -41,4 +37,10 @@ export async function listPosts(): Promise<PostRecord[]> {
 export async function listPostsByAuthor(authorId: string): Promise<PostRecord[]> {
   const posts = await listPosts();
   return posts.filter((post) => post.author.id === authorId);
+}
+
+export async function getPostById(postId: string): Promise<PostRecord> {
+  const post = (await listPosts()).find((item) => item.id === postId);
+  if (!post) throw new Error("Post not found");
+  return post;
 }
