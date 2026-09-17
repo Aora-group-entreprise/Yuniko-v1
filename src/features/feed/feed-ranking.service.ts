@@ -85,6 +85,17 @@ function getAffinity(feed: ChronologicalFeed): Map<string, number> {
   return affinity;
 }
 
+function getViewCounts(feed: ChronologicalFeed): Map<string, number> {
+  const viewCounts = new Map(feed.posts.map((post) => [post.id, post.viewCount]));
+
+  for (const event of getInteractionEvents()) {
+    if (event.type !== "view" || !viewCounts.has(event.postId)) continue;
+    viewCounts.set(event.postId, (viewCounts.get(event.postId) ?? 0) + 1);
+  }
+
+  return viewCounts;
+}
+
 export function markPostSeen(postId: string): void {
   if (typeof window === "undefined") return;
   const seen = readIds(SEEN_KEY);
@@ -115,6 +126,7 @@ export async function getAlgorithmicFeed(feed: ChronologicalFeed): Promise<Chron
       savedPostIds: readIds(SAVED_KEY),
       seenPostIds: readIds(SEEN_KEY),
       affinityByAuthor: getAffinity(feed),
+      viewCountByPost: getViewCounts(feed),
     }),
   };
 }
