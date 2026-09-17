@@ -11,13 +11,15 @@ import { PostDetailPage } from "../posts/PostDetailPage";
 import { NotificationsPage } from "../notifications/NotificationsPage";
 import { SearchPage } from "../search/SearchPage";
 import { MessagesPage } from "../messages/MessagesPage";
+import { StoriesPage } from "../stories/StoriesPage";
 import { getUnreadNotificationCount } from "../notifications/notifications.service";
 
-type AppView = "feed" | "profile" | "create" | "post" | "notifications" | "search" | "messages";
+type AppView = "feed" | "profile" | "create" | "post" | "notifications" | "search" | "messages" | "stories";
 
 export function FeedPage() {
   const [view, setView] = useState<AppView>("feed");
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
 
   if (view === "profile") return <ProfilePage onBack={() => setView("feed")} onOpenPost={(postId) => { setSelectedPostId(postId); setView("post"); }} />;
   if (view === "create") return <CreatePostPage onBack={() => setView("feed")} />;
@@ -25,10 +27,11 @@ export function FeedPage() {
   if (view === "notifications") return <NotificationsPage onBack={() => setView("feed")} />;
   if (view === "search") return <SearchPage onBack={() => setView("feed")} onOpenPost={(postId) => { setSelectedPostId(postId); setView("post"); }} />;
   if (view === "messages") return <MessagesPage onBack={() => setView("feed")} />;
-  return <FollowingFeed onOpenProfile={() => setView("profile")} onOpenCreate={() => setView("create")} onOpenNotifications={() => setView("notifications")} onOpenSearch={() => setView("search")} onOpenMessages={() => setView("messages")} />;
+  if (view === "stories") return <StoriesPage initialStoryId={selectedStoryId} onBack={() => setView("feed")} />;
+  return <FollowingFeed onOpenProfile={() => setView("profile")} onOpenCreate={() => setView("create")} onOpenNotifications={() => setView("notifications")} onOpenSearch={() => setView("search")} onOpenMessages={() => setView("messages")} onOpenStory={(storyId) => { setSelectedStoryId(storyId); setView("stories"); }} onCreateStory={() => { setSelectedStoryId(null); setView("stories"); }} />;
 }
 
-function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpenSearch, onOpenMessages }: { onOpenProfile: () => void; onOpenCreate: () => void; onOpenNotifications: () => void; onOpenSearch: () => void; onOpenMessages: () => void }) {
+function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpenSearch, onOpenMessages, onOpenStory, onCreateStory }: { onOpenProfile: () => void; onOpenCreate: () => void; onOpenNotifications: () => void; onOpenSearch: () => void; onOpenMessages: () => void; onOpenStory: (storyId: string) => void; onCreateStory: () => void }) {
   const [worldMenu, setWorldMenu] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [unreadNotifications, setUnreadNotifications] = useState(() => getUnreadNotificationCount());
@@ -57,7 +60,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
         <div className="feed-header-actions"><button type="button" aria-label="Search" onClick={onOpenSearch}><Search size={20} /></button><button type="button" aria-label="Add friends"><UserPlus size={20} /></button></div>
       </header>
       {worldMenu && <div className="world-menu" role="menu"><button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><Globe size={13} />World Feed</button><button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><span>#</span>Trending tags</button></div>}
-      <StoryStrip stories={data?.stories ?? []} />
+      <StoryStrip stories={data?.stories ?? []} onOpenStory={onOpenStory} onCreateStory={onCreateStory} />
       {!online && <div className="offline-bar"><WifiOff size={12} /><span>Offline mode</span></div>}
       <section className="feed-viewport" data-testid="posts-feed" aria-label="World Feed">
         {isLoading && <FeedSkeleton />}
