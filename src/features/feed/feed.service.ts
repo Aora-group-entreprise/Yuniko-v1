@@ -4,7 +4,14 @@ import { getFollowingProfileIds } from "../follow/follow.service";
 import { isPostDistributedToCountry } from "./world-distribution.service";
 
 const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
-const LOCAL_COUNTRY = "MG";
+const VIEWER_COUNTRY_KEY = "yuniko.viewer-country.v1";
+const DEFAULT_VIEWER_COUNTRY = "MG";
+
+function viewerCountry(): string {
+  if (typeof window === "undefined") return DEFAULT_VIEWER_COUNTRY;
+  const value = window.localStorage.getItem(VIEWER_COUNTRY_KEY)?.trim().toUpperCase();
+  return value || DEFAULT_VIEWER_COUNTRY;
+}
 
 const demoStories: ChronologicalFeed["stories"] = [
   { id: "s1", author: { id: "1", username: "sofia.park", displayName: "Sofia Park", avatarUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg` }, mediaUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`, viewed: false },
@@ -26,10 +33,11 @@ export async function getChronologicalFeed(): Promise<ChronologicalFeed> {
  * World Feed distribution boundary.
  * Every post starts with 3 countries, then expands sequentially to 5, 7 and
  * finally worldwide when the active cohort shows strong audience signals.
- * Country performance is derived from local view/interaction events for now.
+ * The viewer country is read from the same local prototype setting used by
+ * view telemetry, keeping distribution and measurement aligned.
  */
 export function getWorldDistributedPosts(posts: ChronologicalFeed["posts"]): ChronologicalFeed["posts"] {
-  return posts.filter((post) => isPostDistributedToCountry(post.id, LOCAL_COUNTRY));
+  return posts.filter((post) => isPostDistributedToCountry(post.id, viewerCountry()));
 }
 
 /** World Feed: progressive distribution happens before personalized ranking. */
