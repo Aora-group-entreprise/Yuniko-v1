@@ -13,6 +13,7 @@ const MAX_FILE_MB = 20;
 export function CreatePostPage({ onBack }: { onBack: () => void }) {
   const draft = usePostStore((state) => state.draft);
   const setDraft = usePostStore((state) => state.setDraft);
+  const createPostDraft = usePostStore((state) => state.createPostDraft);
   const setCaption = usePostStore((state) => state.setCaption);
   const setVisibility = usePostStore((state) => state.setVisibility);
   const removeMedia = usePostStore((state) => state.removeMedia);
@@ -29,12 +30,22 @@ export function CreatePostPage({ onBack }: { onBack: () => void }) {
       if (!active) return;
       if (saved) {
         const restored = postDraftSchema.safeParse(saved.draft);
-        if (restored.success) { setDraft(restored.data); setFiles(saved.files); }
+        if (restored.success) {
+          setDraft(restored.data);
+          setFiles(saved.files);
+        }
+      } else {
+        createPostDraft();
       }
       setLoadingDraft(false);
-    }).catch(() => setLoadingDraft(false));
+    }).catch(() => {
+      if (active) {
+        createPostDraft();
+        setLoadingDraft(false);
+      }
+    });
     return () => { active = false; };
-  }, [setDraft]);
+  }, [createPostDraft, setDraft]);
 
   useEffect(() => {
     if (!draft || loadingDraft) return;
@@ -62,7 +73,8 @@ export function CreatePostPage({ onBack }: { onBack: () => void }) {
         });
       }
       if (!draft) {
-        setDraft({ id: createPostId(), caption: "", visibility: "public" as PostVisibility, media: processed.map((item) => item.media), createdAt: new Date().toISOString() });
+        createPostDraft();
+        processed.forEach((item) => usePostStore.getState().addMedia(item.media));
       } else {
         processed.forEach((item) => usePostStore.getState().addMedia(item.media));
       }
