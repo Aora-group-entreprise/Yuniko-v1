@@ -47,6 +47,17 @@ img {
   padding-bottom: calc(80px + var(--yuniko-safe-bottom));
 }
 
+.phase10-page-loading {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: #0b0d12;
+  color: rgba(245, 247, 251, 0.78);
+  font-size: 15px;
+}
+
 .phase10-error-boundary {
   min-height: 100dvh;
   display: grid;
