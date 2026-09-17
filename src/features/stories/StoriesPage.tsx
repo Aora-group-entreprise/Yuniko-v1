@@ -45,8 +45,8 @@ export function StoriesPage({ initialStoryId, onBack }: StoriesPageProps) {
       ) : current ? (
         <section className="story-viewer" aria-label={`Story by ${current.authorName}`}>
           <div className="story-progress">{stories.map((story, storyIndex) => <span key={story.id} className={storyIndex <= index ? "filled" : ""} />)}</div>
-          <div className="story-author"><img src={current.authorAvatarUrl} alt="" /><div><strong>{current.authorName}</strong><small>@{current.authorUsername}</small></div></div>
-          <img className="story-media" src={current.mediaUrl} alt={current.caption || `Story by ${current.authorName}`} />
+          <div className="story-author"><img src={current.authorAvatarUrl} alt="" loading="lazy" decoding="async" /><div><strong>{current.authorName}</strong><small>@{current.authorUsername}</small></div></div>
+          <img className="story-media" src={current.mediaUrl} alt={current.caption || `Story by ${current.authorName}`} loading="eager" decoding="async" fetchPriority="high" />
           {current.caption && <p className="story-caption">{current.caption}</p>}
           {index > 0 && <button type="button" className="story-nav story-prev" aria-label="Previous story" onClick={() => move(-1)}><ChevronLeft /></button>}
           {index < stories.length - 1 && <button type="button" className="story-nav story-next" aria-label="Next story" onClick={() => move(1)}><ChevronRight /></button>}
