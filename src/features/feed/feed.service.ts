@@ -1,8 +1,12 @@
 import { chronologicalFeedSchema, type ChronologicalFeed } from "./feed.schema";
 import { listPosts } from "../posts/post-read.service";
 import { getFollowingProfileIds } from "../follow/follow.service";
+import { getDistributionDecision, type DistributionAudience } from "../../algorithms/feed-distribution";
 
 const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
+const LOCAL_COUNTRY = "MG";
+const WORLD_COHORT_KEY = "yuniko.world-cohort.v1";
+const DEFAULT_WORLD_COHORT = ["MG", "FR", "US", "BR", "IN", "NG", "JP"];
 
 const demoStories: ChronologicalFeed["stories"] = [
   { id: "s1", author: { id: "1", username: "sofia.park", displayName: "Sofia Park", avatarUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg` }, mediaUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`, viewed: false },
@@ -22,4 +26,52 @@ export async function getChronologicalFeed(): Promise<ChronologicalFeed> {
   const visibleStories = demoStories.filter((story) => following.has(story.author.id));
 
   return chronologicalFeedSchema.parse({ stories: visibleStories, posts: visiblePosts });
+}
+
+function readWorldCohort(): string[] {
+  if (typeof window === "undefined") return DEFAULT_WORLD_COHORT;
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(WORLD_COHORT_KEY) ?? "[]");
+    if (!Array.isArray(stored)) return DEFAULT_WORLD_COHORT;
+    const countries = stored.filter((value): value is string => typeof value === "string");
+    return countries.length >= 3 ? countries : DEFAULT_WORLD_COHORT;
+  } catch {
+    return DEFAULT_WORLD_COHORT;
+  }
+}
+
+function getLocalAudience(post: ChronologicalFeed["posts"][number]): DistributionAudience {
+  return {
+    likeCount: post.likeCount,
+    commentCount: post.commentCount,
+    saveCount: post.saveCount,
+    shareCount: post.shareCount,
+    viewCount: post.viewCount,
+  };
+}
+
+/**
+ * World Feed distribution boundary.
+ * Every new post begins in the first 3 countries of the world cohort.
+ * Strong audience signals promote it to 5, then 7, then worldwide.
+ *
+ * Frontend-only prototype: the cohort and audience counters are local.
+ * The eventual backend will evaluate the same rule per country cohort.
+ */
+export function getWorldDistributedPosts(posts: ChronologicalFeed["posts"]): ChronologicalFeed["posts"] {
+  const cohort = readWorldCohort();
+
+  return posts.filter((post) => {
+    const decision = getDistributionDecision(getLocalAudience(post), cohort);
+    return decision.isGlobal || decision.countries.includes(LOCAL_COUNTRY);
+  });
+}
+
+/** World Feed: unlike the Following Feed, it starts from all public local posts. */
+export async function getWorldFeed(): Promise<ChronologicalFeed> {
+  const posts = await listPosts();
+  return chronologicalFeedSchema.parse({
+    stories: demoStories,
+    posts: getWorldDistributedPosts(posts),
+  });
 }
