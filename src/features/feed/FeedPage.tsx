@@ -6,14 +6,17 @@ import { PostCard } from "./components/PostCard";
 import { StoryStrip } from "./components/StoryStrip";
 import { ProfilePage } from "../profile/ProfilePage";
 import { CreatePostPage } from "../posts/CreatePostPage";
+import { PostDetailPage } from "../posts/PostDetailPage";
 
-type AppView = "feed" | "profile" | "create";
+type AppView = "feed" | "profile" | "create" | "post";
 
 export function FeedPage() {
   const [view, setView] = useState<AppView>("feed");
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
-  if (view === "profile") return <ProfilePage onBack={() => setView("feed")} />;
+  if (view === "profile") return <ProfilePage onBack={() => setView("feed")} onOpenPost={(postId) => { setSelectedPostId(postId); setView("post"); }} />;
   if (view === "create") return <CreatePostPage onBack={() => setView("feed")} />;
+  if (view === "post" && selectedPostId) return <PostDetailPage postId={selectedPostId} onBack={() => setView("profile")} />;
   return <FollowingFeed onOpenProfile={() => setView("profile")} onOpenCreate={() => setView("create")} />;
 }
 
