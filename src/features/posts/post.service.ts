@@ -1,4 +1,5 @@
 import { parsePostContent } from "./post-content";
+import { detectPostLanguage, type PostLanguage } from "./post-language";
 import { publishPostSchema, type PostDraft, type PostMedia, type PostVisibility } from "./post.schema";
 
 export interface UploadRequest {
@@ -14,6 +15,7 @@ export interface PublishPostInput {
   media: PostMedia[];
   hashtags: string[];
   mentions: string[];
+  languageHint: PostLanguage;
   createdAt: string;
 }
 
@@ -43,6 +45,7 @@ export function preparePostPublishInput(draft: PostDraft): PublishPostInput {
     media: parsed.media,
     hashtags,
     mentions,
+    languageHint: detectPostLanguage(parsed.caption),
     createdAt: parsed.createdAt,
   };
 }
