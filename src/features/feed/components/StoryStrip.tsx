@@ -24,7 +24,7 @@ export function StoryStrip({ stories, onOpenStory, onCreateStory }: StoryStripPr
         {stories.map((story) => (
           <motion.button key={story.id} whileTap={{ scale: 0.9 }} className="story-item" type="button" aria-label={`Open ${story.author.displayName}'s story`} onClick={() => onOpenStory?.(story.id)}>
             <div className={`story-avatar ${story.viewed ? "story-viewed" : "story-unviewed"}`}>
-              <div className="story-avatar-inner"><img src={story.author.avatarUrl} alt="" /></div>
+              <div className="story-avatar-inner"><img src={story.author.avatarUrl} alt="" loading="lazy" decoding="async" /></div>
             </div>
             <span>{story.author.displayName.split(" ")[0]}</span>
           </motion.button>
