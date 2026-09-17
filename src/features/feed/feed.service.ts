@@ -1,6 +1,7 @@
 import { chronologicalFeedSchema, type ChronologicalFeed } from "./feed.schema";
 import { listPosts } from "../posts/post-read.service";
 import { getFollowingProfileIds } from "../follow/follow.service";
+import { getPostCounters } from "../counters/counters.service";
 import { getDistributionDecision, type DistributionAudience } from "../../algorithms/feed-distribution";
 
 const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
@@ -14,11 +15,7 @@ const demoStories: ChronologicalFeed["stories"] = [
   { id: "s3", author: { id: "3", username: "lina.rose", displayName: "Lina Rose", avatarUrl: `${REFERENCE_MEDIA}/scene-flower.jpg` }, mediaUrl: `${REFERENCE_MEDIA}/scene-flower.jpg`, viewed: true },
 ];
 
-/**
- * Phase 2 boundary: chronological following feed.
- * In the frontend-only build, following relationships are persisted locally;
- * the final server implementation will enforce the same filter server-side.
- */
+/** Phase 2 boundary: chronological following feed. */
 export async function getChronologicalFeed(): Promise<ChronologicalFeed> {
   const [posts, followingIds] = await Promise.all([listPosts(), Promise.resolve(getFollowingProfileIds())]);
   const following = new Set(followingIds);
@@ -41,11 +38,18 @@ function readWorldCohort(): string[] {
 }
 
 function getLocalAudience(post: ChronologicalFeed["posts"][number]): DistributionAudience {
+  const counters = getPostCounters(post.id, {
+    likes: post.likeCount,
+    comments: post.commentCount,
+    saves: post.saveCount,
+    shares: post.shareCount,
+  });
+
   return {
-    likeCount: post.likeCount,
-    commentCount: post.commentCount,
-    saveCount: post.saveCount,
-    shareCount: post.shareCount,
+    likeCount: counters.likes,
+    commentCount: counters.comments,
+    saveCount: counters.saves,
+    shareCount: counters.shares,
     viewCount: post.viewCount,
   };
 }
@@ -54,9 +58,8 @@ function getLocalAudience(post: ChronologicalFeed["posts"][number]): Distributio
  * World Feed distribution boundary.
  * Every new post begins in the first 3 countries of the world cohort.
  * Strong audience signals promote it to 5, then 7, then worldwide.
- *
- * Frontend-only prototype: the cohort and audience counters are local.
- * The eventual backend will evaluate the same rule per country cohort.
+ * Frontend-only prototype: local event-derived counters stand in for the
+ * eventual server-side per-country audience measurements.
  */
 export function getWorldDistributedPosts(posts: ChronologicalFeed["posts"]): ChronologicalFeed["posts"] {
   const cohort = readWorldCohort();
@@ -67,7 +70,7 @@ export function getWorldDistributedPosts(posts: ChronologicalFeed["posts"]): Chr
   });
 }
 
-/** World Feed: unlike the Following Feed, it starts from all public local posts. */
+/** World Feed: all posts pass through progressive distribution before ranking. */
 export async function getWorldFeed(): Promise<ChronologicalFeed> {
   const posts = await listPosts();
   return chronologicalFeedSchema.parse({
