@@ -1,0 +1,17 @@
+.collections-sheet-backdrop { position: fixed; inset: 0; z-index: 124; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.collections-sheet { width: min(620px,100%); max-height: min(680px,88dvh); overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 22px 22px 0 0; background: #120e1e; box-shadow: 0 -20px 60px rgba(0,0,0,.48); }
+.collections-sheet-header { min-height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px 0 18px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.collections-sheet-header div { display: grid; gap: 3px; }
+.collections-sheet-header strong { font-family: 'Space Grotesk',sans-serif; font-size: 16px; }
+.collections-sheet-header span { color: rgba(255,255,255,.4); font-size: 11px; }
+.collections-sheet-header button { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 999px; color: rgba(255,255,255,.72); }
+.collections-list { max-height: min(500px,60dvh); overflow-y: auto; padding: 8px 12px; }
+.collection-row { width: 100%; min-height: 54px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-radius: 13px; text-align: left; color: rgba(255,255,255,.86); font-size: 13px; }
+.collection-row:hover { background: rgba(255,255,255,.06); }
+.collection-row > span:nth-child(2) { flex: 1; }
+.collection-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: rgba(139,0,255,.16); color: #d7b7ff; }
+.collection-create { display: flex; gap: 8px; padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(255,255,255,.07); }
+.collection-create input { min-width: 0; flex: 1; height: 42px; padding: 0 12px; border: 1px solid rgba(255,255,255,.1); outline: 0; border-radius: 13px; background: rgba(255,255,255,.045); color: rgba(255,255,255,.92); }
+.collection-create button { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; background: linear-gradient(135deg,#ff006e,#8b00ff); }
+.collection-create button:disabled { opacity: .35; }
+@media (max-width:520px) { .collections-sheet { border-radius: 18px 18px 0 0; } }
