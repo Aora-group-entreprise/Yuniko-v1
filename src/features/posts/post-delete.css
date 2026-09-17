@@ -1,0 +1,17 @@
+.post-detail-menu-wrap { position: relative; z-index: 130; }
+.post-detail-menu { position: absolute; top: 40px; right: 0; width: 170px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-radius: 14px; background: #171220; box-shadow: 0 16px 40px rgba(0,0,0,.45); }
+.post-detail-menu button { width: 100%; display: flex; align-items: center; gap: 9px; padding: 12px 14px; text-align: left; font-size: 13px; }
+.post-detail-menu button:hover { background: rgba(255,255,255,.06); }
+.post-detail-menu button.danger { color: #ff6b8a; }
+.post-detail-menu-dismiss { position: fixed; inset: 0; z-index: 120; cursor: default; }
+.post-delete-backdrop { position: fixed; inset: 0; z-index: 150; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.post-delete-sheet { width: min(390px, 100%); padding: 24px; border: 1px solid rgba(255,255,255,.08); border-radius: 20px; background: #171220; box-shadow: 0 20px 60px rgba(0,0,0,.5); text-align: center; }
+.post-delete-icon { width: 48px; height: 48px; margin: 0 auto 14px; display: grid; place-items: center; border-radius: 999px; background: rgba(239,68,68,.12); color: #ff6b8a; }
+.post-delete-sheet h2 { margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px; }
+.post-delete-sheet p { margin: 10px 0 20px; color: rgba(255,255,255,.62); font-size: 13px; line-height: 1.5; }
+.post-delete-error { color: #ff9ab0 !important; }
+.post-delete-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.post-delete-cancel, .post-delete-confirm { height: 40px; border-radius: 10px; font-size: 13px; font-weight: 700; }
+.post-delete-cancel { background: rgba(255,255,255,.07); color: rgba(255,255,255,.86); }
+.post-delete-confirm { background: #ef4444; color: white; }
+.post-delete-cancel:disabled, .post-delete-confirm:disabled { opacity: .55; }
