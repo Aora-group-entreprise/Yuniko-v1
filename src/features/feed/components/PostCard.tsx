@@ -29,7 +29,7 @@ export function PostCard({ post }: { post: FeedPost }) {
   return (
     <>
       <article className="post-card">
-        <img src={post.mediaUrl} alt={post.caption} className="post-media" />
+        <img src={post.mediaUrl} alt={post.caption} className="post-media" loading="eager" decoding="async" fetchPriority="high" />
         <div className="post-gradient" />
         <div className="post-views"><Eye size={12} /><span>{post.viewCount.toLocaleString()}</span></div>
         <button className="post-more" aria-label="Post options" type="button" onClick={() => setModerationOpen(true)}><MoreHorizontal size={18} /></button>
@@ -59,7 +59,7 @@ export function PostCard({ post }: { post: FeedPost }) {
         <div className="post-copy">
           <div className="post-author-row">
             <div className="avatar-ring" style={{ background: GRADIENT }}>
-              <img src={post.author.avatarUrl} alt={post.author.displayName} />
+              <img src={post.author.avatarUrl} alt={post.author.displayName} loading="lazy" decoding="async" />
             </div>
             <div className="post-author-meta">
               <button type="button" className="post-author">{post.author.displayName}</button>
