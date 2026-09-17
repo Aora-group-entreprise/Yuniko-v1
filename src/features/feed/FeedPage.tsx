@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Bell, ChevronDown, Globe, MessageCircle, Plus, Search, ShieldCheck, UserPlus, UserRound, WifiOff } from "lucide-react";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { getWorldFeed } from "./feed.service";
 import { getAlgorithmicFeed, markPostSeen } from "./feed-ranking.service";
 import { PostCard } from "./components/PostCard";
 import { StoryStrip } from "./components/StoryStrip";
-import { getUnreadNotificationCount } from "../notifications/notifications.service";
+import { getUnreadNotificationCount, subscribeToNotifications } from "../notifications/notifications.service";
 
 const ProfilePage = lazy(() => import("../profile/ProfilePage").then((module) => ({ default: module.ProfilePage })));
 const CreatePostPage = lazy(() => import("../posts/CreatePostPage").then((module) => ({ default: module.CreatePostPage })));
@@ -56,12 +56,15 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
   useEffect(() => {
     const on = () => setOnline(true);
     const off = () => setOnline(false);
+    const refreshNotifications = () => setUnreadNotifications(getUnreadNotificationCount());
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
-    const refresh = () => setUnreadNotifications(getUnreadNotificationCount());
-    window.addEventListener("storage", refresh);
-    const refreshInterval = window.setInterval(refresh, 10_000);
-    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); window.removeEventListener("storage", refresh); window.clearInterval(refreshInterval); };
+    const unsubscribeNotifications = subscribeToNotifications(refreshNotifications);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+      unsubscribeNotifications();
+    };
   }, []);
 
   const handlePostSeen = (postId: string) => {
@@ -96,5 +99,5 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
   );
 }
 
-function NavItem({ label, active, children }: { label: string; active?: boolean; children: React.ReactNode }) { return <button type="button" className={`nav-item ${active ? "active" : ""}`} aria-label={label}><span>{children}</span><small>{label}</small></button>; }
+function NavItem({ label, active, children }: { label: string; active?: boolean; children: ReactNode }) { return <button type="button" className={`nav-item ${active ? "active" : ""}`} aria-label={label}><span>{children}</span><small>{label}</small></button>; }
 function FeedSkeleton() { return <div className="feed-slide"><div className="post-card skeleton-card"><div className="skeleton" /><div className="skeleton skeleton-copy" /></div></div>; }
