@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Bell, ChevronDown, Globe, MessageCircle, Plus, Search, ShieldCheck, UserPlus, UserRound, WifiOff } from "lucide-react";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { getWorldFeed } from "./feed.service";
 import { getAlgorithmicFeed, markPostSeen } from "./feed-ranking.service";
 import { PostCard } from "./components/PostCard";
@@ -46,6 +46,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
   const [worldMenu, setWorldMenu] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [unreadNotifications, setUnreadNotifications] = useState(() => getUnreadNotificationCount());
+  const seenPostsRef = useRef(new Set<string>());
   const { data, isLoading, isError } = useQuery({
     queryKey: ["feed", "world", "personalized"],
     queryFn: async () => getAlgorithmicFeed(await getWorldFeed()),
@@ -59,9 +60,15 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
     window.addEventListener("offline", off);
     const refresh = () => setUnreadNotifications(getUnreadNotificationCount());
     window.addEventListener("storage", refresh);
-    const timer = window.setInterval(refresh, 1000);
-    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); window.clearInterval(timer); };
+    const refreshInterval = window.setInterval(refresh, 10_000);
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); window.removeEventListener("storage", refresh); window.clearInterval(refreshInterval); };
   }, []);
+
+  const handlePostSeen = (postId: string) => {
+    if (seenPostsRef.current.has(postId)) return;
+    seenPostsRef.current.add(postId);
+    markPostSeen(postId);
+  };
 
   return (
     <main className="feed-shell">
@@ -76,7 +83,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
       <section className="feed-viewport" data-testid="posts-feed" aria-label="World Feed">
         {isLoading && <FeedSkeleton />}
         {isError && <div className="feed-state">Unable to load the feed.</div>}
-        {!isLoading && !isError && data?.posts.map((post) => <div key={post.id} className="feed-slide" onPointerEnter={() => markPostSeen(post.id)} onFocus={() => markPostSeen(post.id)}><PostCard post={post} /></div>)}
+        {!isLoading && !isError && data?.posts.map((post) => <div key={post.id} className="feed-slide" onFocus={() => handlePostSeen(post.id)}><PostCard post={post} /></div>)}
       </section>
       <nav className="bottom-nav" aria-label="Primary navigation">
         <NavItem label="Home" active><span>⌂</span></NavItem>
