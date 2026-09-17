@@ -34,7 +34,7 @@ export function savePost(postId: string, collectionId = DEFAULT_COLLECTION_ID): 
     }
     return existing;
   }
-  const saved: SavedPost = { id: postId, postId, collectionIds: [DEFAULT_COLLECTION_ID, collectionId].filter((id, index, ids) => ids.indexOf(id) === index), savedAt: new Date().toISOString() };
+  const saved: SavedPost = { postId, collectionIds: [DEFAULT_COLLECTION_ID, collectionId].filter((id, index, ids) => ids.indexOf(id) === index), savedAt: new Date().toISOString() };
   writeState({ ...state, savedPosts: [...state.savedPosts, saved] });
   return saved;
 }
