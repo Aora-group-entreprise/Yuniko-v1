@@ -3,48 +3,23 @@ import {
   DISTRIBUTION_RULES,
   DISTRIBUTION_STAGES,
   normalizeCountryCodes,
-  type DistributionStage,
 } from "../../algorithms/feed-distribution";
+import {
+  distributionStateSchema,
+  type CountryPerformance,
+  type DistributionStage,
+  type DistributionState,
+} from "../distribution/distribution.schema";
 
 const STATE_KEY = "yuniko.post-distribution.v1";
 const DEFAULT_COHORT = ["MG", "FR", "US", "BR", "IN", "NG", "JP"];
-
-type DistributionPostState = {
-  stage: DistributionStage;
-  viewsAtStageStart: number;
-};
-
-type DistributionState = Record<string, DistributionPostState>;
-
-type CountryPerformance = {
-  countryCode: string;
-  views: number;
-  likes: number;
-  comments: number;
-  saves: number;
-  shares: number;
-};
 
 function readState(): DistributionState {
   if (typeof window === "undefined") return {};
   try {
     const parsed = JSON.parse(window.localStorage.getItem(STATE_KEY) ?? "{}");
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-
-    return Object.fromEntries(
-      Object.entries(parsed).flatMap(([postId, value]) => {
-        if (value === 3 || value === 5 || value === 7 || value === "global") {
-          return [[postId, { stage: value, viewsAtStageStart: 0 }]];
-        }
-        if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-        const stage = (value as { stage?: unknown }).stage;
-        const viewsAtStageStart = (value as { viewsAtStageStart?: unknown }).viewsAtStageStart;
-        if ((stage === 3 || stage === 5 || stage === 7 || stage === "global") && typeof viewsAtStageStart === "number") {
-          return [[postId, { stage, viewsAtStageStart: Math.max(0, viewsAtStageStart) }]];
-        }
-        return [];
-      }),
-    ) as DistributionState;
+    const result = distributionStateSchema.safeParse(parsed);
+    return result.success ? result.data : {};
   } catch {
     return {};
   }
@@ -135,9 +110,10 @@ function nextStage(stage: DistributionStage): DistributionStage {
 }
 
 /**
- * Promotion is sequential: 3 -> 5 -> 7 -> global.
- * Each stage needs its own minimum-view window before another promotion can
- * happen, preventing repeated feed refreshes from instantly skipping stages.
+ * Phase 6 progressive global distribution.
+ * Each stage has its own view window: 3 -> 5 -> 7 -> global.
+ * The ordered cohort is cumulative, so every promoted stage retains all
+ * countries from the previous stage.
  */
 export function getPostDistributionStage(postId: string): DistributionStage {
   const state = readState();
