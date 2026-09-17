@@ -8,6 +8,9 @@ const SEEN_KEY = "yuniko.seen-posts.v1";
 const VIEWED_KEY = "yuniko.viewed-posts.v1";
 const VIEWER_COUNTRY_KEY = "yuniko.viewer-country.v1";
 const DEFAULT_VIEWER_COUNTRY = "MG";
+const VIEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+type ViewedMap = Record<string, number>;
 
 function readIds(key: string): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -29,6 +32,32 @@ function viewerCountry(): string {
   return value || DEFAULT_VIEWER_COUNTRY;
 }
 
+function readViewed(): ViewedMap {
+  if (typeof window === "undefined") return {};
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(VIEWED_KEY) ?? "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([, value]) => typeof value === "number"),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeViewed(viewed: ViewedMap): void {
+  if (typeof window === "undefined") return;
+  try {
+    const cutoff = Date.now() - VIEW_WINDOW_MS;
+    const active = Object.fromEntries(
+      Object.entries(viewed).filter(([, timestamp]) => timestamp >= cutoff),
+    );
+    window.localStorage.setItem(VIEWED_KEY, JSON.stringify(active));
+  } catch {
+    // Best effort only.
+  }
+}
+
 function getAffinity(feed: ChronologicalFeed): Map<string, number> {
   const authorByPost = new Map(feed.posts.map((post) => [post.id, post.author.id]));
   const affinity = new Map<string, number>();
@@ -46,7 +75,9 @@ function getAffinity(feed: ChronologicalFeed): Map<string, number> {
             ? 5
             : event.type === "unlike" || event.type === "unsave"
               ? -2
-              : 1;
+              : event.type === "view"
+                ? 0.25
+                : 1;
 
     affinity.set(authorId, Math.max(0, (affinity.get(authorId) ?? 0) + weight));
   }
@@ -66,16 +97,13 @@ export function markPostSeen(postId: string): void {
     // Best effort only. Backend persistence will replace this boundary later.
   }
 
-  const viewed = readIds(VIEWED_KEY);
-  if (viewed.has(postId)) return;
-  viewed.add(postId);
+  const viewed = readViewed();
+  const now = Date.now();
+  const lastViewedAt = viewed[postId] ?? 0;
+  if (now - lastViewedAt < VIEW_WINDOW_MS) return;
 
-  try {
-    window.localStorage.setItem(VIEWED_KEY, JSON.stringify([...viewed].slice(-500)));
-  } catch {
-    // Best effort only.
-  }
-
+  viewed[postId] = now;
+  writeViewed(viewed);
   recordInteraction("view", postId, undefined, { countryCode: viewerCountry() });
 }
 
