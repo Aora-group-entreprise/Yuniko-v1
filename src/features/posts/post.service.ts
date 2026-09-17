@@ -24,18 +24,102 @@ export interface PublishPostInput {
   createdAt: string;
 }
 
-/**
- * Phase 2 boundary: real signed storage URLs are supplied by the Phase 1
- * server function once auth/storage exist. The client never decides storage
- * permissions or post truth.
- */
-export async function requestUploadUrls(media: PostMedia[]): Promise<UploadRequest[]> {
-  void media;
-  throw new Error("Media upload service is not configured yet. Complete the storage server function in Phase 1.");
+const MEDIA_DB_NAME = "yuniko-local-media";
+const MEDIA_STORE_NAME = "media";
+const LOCAL_POSTS_KEY = "yuniko.local-posts.v1";
+
+interface LocalPostMediaRecord {
+  mediaId: string;
+  blob: Blob;
 }
 
-export async function uploadMedia(_file: File, _upload: UploadRequest): Promise<void> {
-  throw new Error("Direct media upload is not configured yet. Complete the signed storage endpoint in Phase 1.");
+interface LocalPublishedPost {
+  id: string;
+  caption: string;
+  visibility: PostVisibility;
+  media: CreatePostTransactionInput["media"];
+  hashtags: string[];
+  mentions: string[];
+  languageHint: PostLanguage;
+  createdAt: string;
+}
+
+function openMediaDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined" || !("indexedDB" in window)) {
+      reject(new Error("IndexedDB is unavailable in this browser."));
+      return;
+    }
+    const request = window.indexedDB.open(MEDIA_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(MEDIA_STORE_NAME)) {
+        db.createObjectStore(MEDIA_STORE_NAME, { keyPath: "mediaId" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("Unable to open local media storage."));
+  });
+}
+
+async function putLocalMedia(record: LocalPostMediaRecord): Promise<void> {
+  const db = await openMediaDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(MEDIA_STORE_NAME, "readwrite");
+    transaction.objectStore(MEDIA_STORE_NAME).put(record);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error ?? new Error("Unable to store local media."));
+  });
+  db.close();
+}
+
+export async function getLocalMediaUrl(mediaId: string): Promise<string | null> {
+  try {
+    const db = await openMediaDb();
+    const record = await new Promise<LocalPostMediaRecord | undefined>((resolve, reject) => {
+      const request = db.transaction(MEDIA_STORE_NAME, "readonly").objectStore(MEDIA_STORE_NAME).get(mediaId);
+      request.onsuccess = () => resolve(request.result as LocalPostMediaRecord | undefined);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    return record ? URL.createObjectURL(record.blob) : null;
+  } catch {
+    return null;
+  }
+}
+
+function readLocalPosts(): LocalPublishedPost[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_POSTS_KEY);
+    return raw ? JSON.parse(raw) as LocalPublishedPost[] : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalPosts(posts: LocalPublishedPost[]): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(LOCAL_POSTS_KEY, JSON.stringify(posts));
+}
+
+/**
+ * Frontend-only Phase 2 upload seam.
+ *
+ * In production this function will request signed storage URLs from a trusted
+ * server function. For the current prototype, the upload target is IndexedDB
+ * and the resulting metadata remains local to this browser.
+ */
+export async function requestUploadUrls(media: PostMedia[]): Promise<UploadRequest[]> {
+  return media.map((item) => ({
+    mediaId: item.id,
+    uploadUrl: `indexeddb://yuniko/${encodeURIComponent(item.id)}`,
+    publicUrl: `https://local.yuniko/media/${encodeURIComponent(item.id)}`,
+  }));
+}
+
+export async function uploadMedia(file: File, upload: UploadRequest): Promise<void> {
+  await putLocalMedia({ mediaId: upload.mediaId, blob: file });
 }
 
 /** Pure preparation shared by the future server transaction boundary. */
@@ -55,11 +139,6 @@ export function preparePostPublishInput(draft: PostDraft): PublishPostInput {
   };
 }
 
-/**
- * Builds the exact payload the future trusted server transaction will receive.
- * The uploaded public URLs come from the signed storage service; the client
- * does not create database rows or declare the post published.
- */
 export function prepareCreatePostTransaction(
   prepared: PublishPostInput,
   uploads: UploadRequest[],
@@ -89,16 +168,25 @@ export function prepareCreatePostTransaction(
 }
 
 /**
- * Trusted transaction seam. It intentionally fails closed until Phase 1
- * server functions, auth, storage and Postgres are implemented.
+ * Frontend-only Phase 2 persistence.
+ *
+ * This is intentionally local and is not presented as server truth. The same
+ * validated transaction payload can later be sent to the real server function
+ * without changing the composer contract.
  */
 export async function createPostTransaction(
   input: CreatePostTransactionInput,
 ): Promise<CreatePostTransactionResult> {
   const validated = createPostTransactionInputSchema.parse(input);
-  throw new Error(
-    `Post transaction server function is not configured yet. Payload ${validated.id} is validated and ready for trusted persistence.`,
-  );
+  const posts = readLocalPosts();
+  const withoutDuplicate = posts.filter((post) => post.id !== validated.id);
+  withoutDuplicate.push(validated);
+  writeLocalPosts(withoutDuplicate);
+  return { postId: validated.id, status: "ready" };
+}
+
+export function getLocalPublishedPosts(): CreatePostTransactionInput[] {
+  return readLocalPosts().map((post) => createPostTransactionInputSchema.parse(post));
 }
 
 export function createPostId(): string {
