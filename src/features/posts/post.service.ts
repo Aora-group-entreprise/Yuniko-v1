@@ -1,5 +1,10 @@
 import { parsePostContent } from "./post-content";
 import { detectPostLanguage, type PostLanguage } from "./post-language";
+import {
+  createPostTransactionInputSchema,
+  type CreatePostTransactionInput,
+  type CreatePostTransactionResult,
+} from "./post-create.contract";
 import { publishPostSchema, type PostDraft, type PostMedia, type PostVisibility } from "./post.schema";
 
 export interface UploadRequest {
@@ -50,9 +55,50 @@ export function preparePostPublishInput(draft: PostDraft): PublishPostInput {
   };
 }
 
-export async function createPost(draft: PostDraft): Promise<PostDraft> {
-  const prepared = preparePostPublishInput(draft);
-  throw new Error(`Post service is not configured yet. Draft ${prepared.id} is ready for the server transaction.`);
+/**
+ * Builds the exact payload the future trusted server transaction will receive.
+ * The uploaded public URLs come from the signed storage service; the client
+ * does not create database rows or declare the post published.
+ */
+export function prepareCreatePostTransaction(
+  prepared: PublishPostInput,
+  uploads: UploadRequest[],
+): CreatePostTransactionInput {
+  if (uploads.length !== prepared.media.length) {
+    throw new Error("Uploaded media no longer matches the post draft.");
+  }
+
+  return createPostTransactionInputSchema.parse({
+    id: prepared.id,
+    caption: prepared.caption,
+    visibility: prepared.visibility,
+    media: prepared.media.map((media, index) => ({
+      mediaId: uploads[index].mediaId,
+      publicUrl: uploads[index].publicUrl,
+      width: media.width,
+      height: media.height,
+      blurhash: media.blurhash,
+      position: media.position,
+      fileName: media.fileName,
+    })),
+    hashtags: prepared.hashtags,
+    mentions: prepared.mentions,
+    languageHint: prepared.languageHint,
+    createdAt: prepared.createdAt,
+  });
+}
+
+/**
+ * Trusted transaction seam. It intentionally fails closed until Phase 1
+ * server functions, auth, storage and Postgres are implemented.
+ */
+export async function createPostTransaction(
+  input: CreatePostTransactionInput,
+): Promise<CreatePostTransactionResult> {
+  const validated = createPostTransactionInputSchema.parse(input);
+  throw new Error(
+    `Post transaction server function is not configured yet. Payload ${validated.id} is validated and ready for trusted persistence.`,
+  );
 }
 
 export function createPostId(): string {
