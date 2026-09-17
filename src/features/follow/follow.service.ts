@@ -4,8 +4,8 @@ const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise
 const FOLLOW_STATE_KEY = "yuniko.follow-state.v1";
 
 const demoProfiles: FollowProfile[] = [
-  { id: "1", username: "sofia.park", displayName: "Sofia Park", avatarUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`, isPrivate: false, followerCount: 12840, followingCount: 486, followStatus: "none" },
-  { id: "2", username: "noah.reyes", displayName: "Noah Reyes", avatarUrl: `${REFERENCE_MEDIA}/scene-dj.jpg`, isPrivate: false, followerCount: 8420, followingCount: 302, followStatus: "none" },
+  { id: "1", username: "sofia.park", displayName: "Sofia Park", avatarUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`, isPrivate: false, followerCount: 12840, followingCount: 486, followStatus: "following" },
+  { id: "2", username: "noah.reyes", displayName: "Noah Reyes", avatarUrl: `${REFERENCE_MEDIA}/scene-dj.jpg`, isPrivate: false, followerCount: 8420, followingCount: 302, followStatus: "following" },
   { id: "3", username: "lina.rose", displayName: "Lina Rose", avatarUrl: `${REFERENCE_MEDIA}/scene-flower.jpg`, isPrivate: true, followerCount: 3910, followingCount: 214, followStatus: "none" },
 ];
 
@@ -17,9 +17,7 @@ function readState(): PersistedFollowState {
   try {
     const raw = window.localStorage.getItem(FOLLOW_STATE_KEY);
     return raw ? JSON.parse(raw) as PersistedFollowState : {};
-  } catch {
-    return {};
-  }
+  } catch { return {}; }
 }
 
 function writeState(state: PersistedFollowState): void {
@@ -69,6 +67,4 @@ export function getFollowingProfileIds(): string[] {
   return demoProfiles.filter((profile) => getStatus(profile) === "following").map((profile) => profile.id);
 }
 
-export function getFollowActorId(): string {
-  return currentUserId;
-}
+export function getFollowActorId(): string { return currentUserId; }
