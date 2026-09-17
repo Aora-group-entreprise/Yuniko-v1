@@ -2,6 +2,8 @@ import { eventLogSchema, type EventType, type InteractionEvent } from "./event.s
 
 const STORAGE_KEY = "yuniko.interaction-events.v1";
 const ACTOR_KEY = "yuniko.local-actor.v1";
+const VIEWER_COUNTRY_KEY = "yuniko.viewer-country.v1";
+const DEFAULT_VIEWER_COUNTRY = "MG";
 
 function actorId(): string {
   if (typeof window === "undefined") return "local-user";
@@ -10,6 +12,12 @@ function actorId(): string {
   const id = `local-user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   window.localStorage.setItem(ACTOR_KEY, id);
   return id;
+}
+
+function viewerCountry(): string {
+  if (typeof window === "undefined") return DEFAULT_VIEWER_COUNTRY;
+  const value = window.localStorage.getItem(VIEWER_COUNTRY_KEY)?.trim().toUpperCase();
+  return value || DEFAULT_VIEWER_COUNTRY;
 }
 
 function readEvents(): InteractionEvent[] {
@@ -34,7 +42,7 @@ export function recordInteraction(type: EventType, postId: string, targetId?: st
     actorId: actorId(),
     ...(targetId ? { targetId } : {}),
     createdAt: new Date().toISOString(),
-    ...(metadata ? { metadata } : {}),
+    metadata: { countryCode: viewerCountry(), ...(metadata ?? {}) },
   };
   writeEvents([...readEvents(), event]);
   return event;
