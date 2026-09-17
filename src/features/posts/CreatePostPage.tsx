@@ -2,6 +2,7 @@ import imageCompression from "browser-image-compression";
 import { ArrowLeft, ImagePlus, LoaderCircle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPost, createPostId } from "./post.service";
+import { generatePostBlurhash } from "./post-blurhash";
 import { clearPostDraft, loadPostDraft, savePostDraft } from "./post-draft.storage";
 import { postDraftSchema, type PostMedia, type PostVisibility } from "./post.schema";
 import { usePostStore } from "./post.store";
@@ -65,22 +66,35 @@ export function CreatePostPage({ onBack }: { onBack: () => void }) {
       const processed: { file: File; media: PostMedia }[] = [];
       for (const [offset, file] of incoming.entries()) {
         const compressed = await imageCompression(file, { maxSizeMB: 2, maxWidthOrHeight: 2400, useWebWorker: true });
-        const previewUrl = URL.createObjectURL(compressed);
+        const preparedFile = new File([compressed], file.name, { type: compressed.type || file.type });
+        const previewUrl = URL.createObjectURL(preparedFile);
         const dimensions = await getImageDimensions(previewUrl);
+        const blurhash = await generatePostBlurhash(preparedFile);
         processed.push({
-          file: new File([compressed], file.name, { type: compressed.type || file.type }),
-          media: { id: `${createPostId()}-${offset}`, fileName: file.name, url: previewUrl, width: dimensions.width, height: dimensions.height, position: (draft?.media.length ?? 0) + offset, status: "ready" },
+          file: preparedFile,
+          media: {
+            id: `${createPostId()}-${offset}`,
+            fileName: file.name,
+            url: previewUrl,
+            width: dimensions.width,
+            height: dimensions.height,
+            blurhash,
+            position: (draft?.media.length ?? 0) + offset,
+            status: "ready",
+          },
         });
       }
       if (!draft) {
         createPostDraft();
-        processed.forEach((item) => usePostStore.getState().addMedia(item.media));
-      } else {
-        processed.forEach((item) => usePostStore.getState().addMedia(item.media));
       }
+      processed.forEach((item) => usePostStore.getState().addMedia(item.media));
       setFiles((current) => [...current, ...processed.map((item) => item.file)]);
-    } catch { setError("The image could not be prepared. Try another image."); }
-    finally { setProcessing(false); if (inputRef.current) inputRef.current.value = ""; }
+    } catch {
+      setError("The image could not be prepared. Try another image.");
+    } finally {
+      setProcessing(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
   }
 
   async function handlePublish() {
