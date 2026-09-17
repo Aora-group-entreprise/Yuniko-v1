@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Bell, ChevronDown, Globe, MessageCircle, Plus, Search, UserPlus, UserRound, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getChronologicalFeed } from "./feed.service";
-import { getAlgorithmicFeed } from "./feed-ranking.service";
+import { getAlgorithmicFeed, markPostSeen } from "./feed-ranking.service";
 import { PostCard } from "./components/PostCard";
 import { StoryStrip } from "./components/StoryStrip";
 import { ProfilePage } from "../profile/ProfilePage";
@@ -56,7 +56,11 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
       <section className="feed-viewport" data-testid="posts-feed" aria-label="Personalized feed">
         {isLoading && <FeedSkeleton />}
         {isError && <div className="feed-state">Unable to load the feed.</div>}
-        {!isLoading && !isError && data?.posts.map((post) => <div key={post.id} className="feed-slide"><PostCard post={post} /></div>)}
+        {!isLoading && !isError && data?.posts.map((post) => (
+          <div key={post.id} className="feed-slide" onPointerEnter={() => markPostSeen(post.id)} onFocus={() => markPostSeen(post.id)}>
+            <PostCard post={post} />
+          </div>
+        ))}
       </section>
       <nav className="bottom-nav" aria-label="Primary navigation">
         <NavItem label="Home" active><span>⌂</span></NavItem>
