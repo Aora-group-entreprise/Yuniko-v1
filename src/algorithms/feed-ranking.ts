@@ -5,6 +5,7 @@ export type FeedRankingSignals = {
   savedPostIds: Set<string>;
   seenPostIds: Set<string>;
   affinityByAuthor: Map<string, number>;
+  viewCountByPost: Map<string, number>;
   now?: number;
 };
 
@@ -17,10 +18,10 @@ function freshness(createdAt: string, now: number): number {
   return Math.exp(-ageHours / 72);
 }
 
-function engagement(post: FeedPost): number {
+function engagement(post: FeedPost, viewCount: number): number {
   const actions = post.likeCount + post.commentCount * 2 + post.saveCount * 3 + post.shareCount * 3;
   const actionSignal = Math.log1p(Math.max(0, actions)) / Math.log1p(10_000);
-  const exposure = Math.max(1, post.viewCount);
+  const exposure = Math.max(1, viewCount);
   const efficiency = Math.min(1, actions / exposure);
   return Math.min(1, actionSignal * 0.7 + efficiency * 0.3);
 }
@@ -31,7 +32,7 @@ function affinityScore(authorId: string, affinityByAuthor: Map<string, number>):
 
 function baseScore(post: FeedPost, index: number, signals: FeedRankingSignals, now: number, total: number): number {
   const fresh = freshness(post.createdAt, now);
-  const engaged = engagement(post);
+  const engaged = engagement(post, signals.viewCountByPost.get(post.id) ?? post.viewCount);
   const affinity = affinityScore(post.author.id, signals.affinityByAuthor);
   const unseenBoost = signals.seenPostIds.has(post.id) ? 0 : 0.16;
   const likedBoost = signals.likedPostIds.has(post.id) ? 0.08 : 0;
