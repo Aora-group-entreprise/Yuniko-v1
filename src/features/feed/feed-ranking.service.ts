@@ -16,12 +16,14 @@ function readIds(key: string): Set<string> {
   }
 }
 
-function getAffinity(): Map<string, number> {
+function getAffinity(feed: ChronologicalFeed): Map<string, number> {
+  const authorByPost = new Map(feed.posts.map((post) => [post.id, post.author.id]));
   const affinity = new Map<string, number>();
   for (const event of getInteractionEvents()) {
+    const authorId = authorByPost.get(event.postId);
+    if (!authorId) continue;
     const weight = event.type === "like" ? 3 : event.type === "comment" || event.type === "reply" ? 4 : event.type === "save" ? 5 : event.type === "share" ? 5 : event.type === "unlike" || event.type === "unsave" ? -2 : 1;
-    const current = affinity.get(event.targetId ?? "") ?? 0;
-    if (event.targetId) affinity.set(event.targetId, Math.max(0, current + weight));
+    affinity.set(authorId, Math.max(0, (affinity.get(authorId) ?? 0) + weight));
   }
   return affinity;
 }
@@ -34,11 +36,13 @@ export function markPostSeen(postId: string): void {
 }
 
 export async function getAlgorithmicFeed(feed: ChronologicalFeed): Promise<ChronologicalFeed> {
-  const rankedPosts = rankFeedPosts(feed.posts, {
-    likedPostIds: readIds(LIKED_KEY),
-    savedPostIds: readIds(SAVED_KEY),
-    seenPostIds: readIds(SEEN_KEY),
-    affinityByAuthor: getAffinity(),
-  });
-  return { ...feed, posts: rankedPosts };
+  return {
+    ...feed,
+    posts: rankFeedPosts(feed.posts, {
+      likedPostIds: readIds(LIKED_KEY),
+      savedPostIds: readIds(SAVED_KEY),
+      seenPostIds: readIds(SEEN_KEY),
+      affinityByAuthor: getAffinity(feed),
+    }),
+  };
 }
