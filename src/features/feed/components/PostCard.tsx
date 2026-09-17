@@ -11,6 +11,7 @@ import { useSavesStore } from "../../saves/saves.store";
 import "../../saves/saves.css";
 import { ShareSheet } from "../../share/ShareSheet";
 import "../../share/share.css";
+import { ModerationSheet } from "../../moderation/ModerationSheet";
 
 const GRADIENT = "linear-gradient(135deg,#ff006e 0%,#8b00ff 100%)";
 
@@ -18,6 +19,7 @@ export function PostCard({ post }: { post: FeedPost }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [moderationOpen, setModerationOpen] = useState(false);
   const liked = useFeedInteractionStore((state) => state.liked.includes(post.id));
   const saved = useSavesStore((state) => state.savedPostIds.includes(post.id));
   const localCommentCount = useCommentsStore((state) => state.comments.filter((comment) => comment.postId === post.id).length);
@@ -30,7 +32,7 @@ export function PostCard({ post }: { post: FeedPost }) {
         <img src={post.mediaUrl} alt={post.caption} className="post-media" />
         <div className="post-gradient" />
         <div className="post-views"><Eye size={12} /><span>{post.viewCount.toLocaleString()}</span></div>
-        <button className="post-more" aria-label="Post options" type="button"><MoreHorizontal size={18} /></button>
+        <button className="post-more" aria-label="Post options" type="button" onClick={() => setModerationOpen(true)}><MoreHorizontal size={18} /></button>
 
         <div className="post-actions">
           <ActionButton label={String(post.likeCount + (liked ? 1 : 0))} onClick={() => toggleLike(post.id)}>
@@ -71,6 +73,7 @@ export function PostCard({ post }: { post: FeedPost }) {
       {commentsOpen && <CommentsSheet postId={post.id} onClose={() => setCommentsOpen(false)} />}
       {collectionsOpen && <CollectionsSheet postId={post.id} onClose={() => setCollectionsOpen(false)} />}
       {shareOpen && <ShareSheet postId={post.id} onClose={() => setShareOpen(false)} />}
+      {moderationOpen && <ModerationSheet targetType="post" targetId={post.id} targetName={post.author.displayName} onClose={() => setModerationOpen(false)} />}
     </>
   );
 }
