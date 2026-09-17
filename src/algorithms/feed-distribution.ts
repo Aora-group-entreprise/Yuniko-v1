@@ -4,7 +4,10 @@ export const DISTRIBUTION_STAGES = [3, 5, 7] as const;
 
 export type DistributionStage = 3 | 5 | 7 | "global";
 
-export type DistributionAudience = Pick<FeedPost, "likeCount" | "commentCount" | "saveCount" | "shareCount" | "viewCount">;
+export type DistributionAudience = Pick<
+  FeedPost,
+  "likeCount" | "commentCount" | "saveCount" | "shareCount" | "viewCount"
+>;
 
 export type DistributionDecision = {
   stage: DistributionStage;
@@ -17,8 +20,8 @@ export type DistributionDecision = {
  * 3 seed countries -> strong audience -> 5 countries -> strong audience
  * -> 7 countries -> strong audience -> worldwide.
  *
- * The thresholds are intentionally centralized so the eventual server model can
- * replace them with data-driven values without changing the feed UI.
+ * Country selection is deliberately data-driven: the service receives the
+ * initial cohort instead of inventing countries inside the ranking algorithm.
  */
 export const DISTRIBUTION_RULES = {
   minimumViewsForPromotion: 20,
@@ -48,11 +51,13 @@ export function hasStrongAudience(audience: DistributionAudience): boolean {
   );
 }
 
+/**
+ * Returns the progressive stage represented by the current audience signal.
+ * The eventual backend will evaluate these signals per country cohort.
+ */
 export function getDistributionStage(audience: DistributionAudience): DistributionStage {
   if (!hasStrongAudience(audience)) return 3;
 
-  // Frontend-only prototype: each promotion represents a successful stage.
-  // The eventual backend will evaluate stage-specific country cohorts.
   const score = audienceStrength(audience);
   if (score >= 0.36) return "global";
   if (score >= 0.24) return 7;
@@ -63,29 +68,26 @@ export function getCountryLimit(stage: DistributionStage): number | null {
   return stage === "global" ? null : stage;
 }
 
-export function selectDistributionCountries(
-  viewerCountry: string,
-  preferredCountries: string[] = ["US", "FR", "BR", "IN", "NG", "JP", "ZA"],
-): string[] {
-  const normalizedViewer = viewerCountry.trim().toUpperCase();
-  const ordered = [normalizedViewer, ...preferredCountries.map((country) => country.trim().toUpperCase())];
-  return [...new Set(ordered)].filter(Boolean);
+export function normalizeCountryCodes(countries: string[]): string[] {
+  return [...new Set(countries.map((country) => country.trim().toUpperCase()).filter(Boolean))];
 }
 
 export function isPostDistributedToCountry(
   audience: DistributionAudience,
   viewerCountry: string,
+  orderedCohortCountries: string[],
 ): boolean {
   const stage = getDistributionStage(audience);
   if (stage === "global") return true;
 
-  const countries = selectDistributionCountries(viewerCountry);
-  return countries.slice(0, stage).includes(viewerCountry.trim().toUpperCase());
+  const country = viewerCountry.trim().toUpperCase();
+  const countries = normalizeCountryCodes(orderedCohortCountries);
+  return countries.slice(0, stage).includes(country);
 }
 
 export function getDistributionDecision(
   audience: DistributionAudience,
-  viewerCountry: string,
+  orderedCohortCountries: string[],
 ): DistributionDecision {
   const stage = getDistributionStage(audience);
   if (stage === "global") {
@@ -94,7 +96,7 @@ export function getDistributionDecision(
 
   return {
     stage,
-    countries: selectDistributionCountries(viewerCountry).slice(0, stage),
+    countries: normalizeCountryCodes(orderedCohortCountries).slice(0, stage),
     isGlobal: false,
   };
 }
