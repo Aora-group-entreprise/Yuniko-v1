@@ -1,0 +1,14 @@
+.post-edit-backdrop { position: fixed; inset: 0; z-index: 120; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.58); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+.post-edit-sheet { width: min(560px, 100%); border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 20px 20px 0 0; background: #120e1e; box-shadow: 0 -18px 50px rgba(0,0,0,.42); overflow: hidden; }
+.post-edit-header { height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 18px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.post-edit-header strong { font-family: 'Space Grotesk', sans-serif; font-size: 16px; }
+.post-edit-content { padding: 18px; }
+.post-edit-content label { display: block; margin-bottom: 8px; color: rgba(255,255,255,.72); font-size: 12px; font-weight: 600; }
+.post-edit-content textarea { width: 100%; min-height: 140px; resize: vertical; border: 1px solid rgba(255,255,255,.10); border-radius: 14px; outline: none; padding: 13px 14px; background: rgba(255,255,255,.05); color: white; font: inherit; font-size: 14px; line-height: 1.45; }
+.post-edit-content textarea:focus { border-color: rgba(255,0,110,.45); box-shadow: 0 0 0 3px rgba(255,0,110,.08); }
+.post-edit-content textarea:disabled { opacity: .65; }
+.post-edit-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; color: rgba(255,255,255,.40); font-size: 11px; }
+.post-edit-save { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 92px; height: 38px; padding: 0 16px; border-radius: 10px; background: linear-gradient(135deg,#ff006e,#8b00ff); color: white; font-size: 13px; font-weight: 700; }
+.post-edit-save:disabled { opacity: .45; }
+.post-edit-error { margin: 10px 0 0; color: #fb7185; font-size: 12px; }
+.post-edit-note { display: flex; align-items: center; gap: 6px; margin: 14px 0 0; color: rgba(255,255,255,.38); font-size: 11px; }
