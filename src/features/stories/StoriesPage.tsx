@@ -16,7 +16,7 @@ export function StoriesPage({ initialStoryId, onBack }: StoriesPageProps) {
   useEffect(() => subscribeToStories(refresh), []);
   useEffect(() => {
     const story = stories[index];
-    if (story) markStoryViewed(story.id);
+    if (story && !story.viewed) markStoryViewed(story.id);
   }, [index, stories]);
 
   const current = stories[index];
