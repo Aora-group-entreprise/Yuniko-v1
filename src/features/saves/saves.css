@@ -14,4 +14,7 @@
 .collection-create input { min-width: 0; flex: 1; height: 42px; padding: 0 12px; border: 1px solid rgba(255,255,255,.1); outline: 0; border-radius: 13px; background: rgba(255,255,255,.045); color: rgba(255,255,255,.92); }
 .collection-create button { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; background: linear-gradient(135deg,#ff006e,#8b00ff); }
 .collection-create button:disabled { opacity: .35; }
+.post-save-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.post-collection-button { width: 25px; height: 22px; display: grid; place-items: center; border-radius: 8px; color: rgba(255,255,255,.7); background: rgba(0,0,0,.28); }
+.post-collection-button:hover { color: white; background: rgba(139,0,255,.35); }
 @media (max-width:520px) { .collections-sheet { border-radius: 18px 18px 0 0; } }
