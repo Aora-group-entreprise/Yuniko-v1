@@ -1,0 +1,51 @@
+import { moderatePostMedia, assertMediaAllowed } from "./post-moderation";
+import { preparePostPublishInput, requestUploadUrls, uploadMedia, type PublishPostInput } from "./post.service";
+import type { PostDraft } from "./post.schema";
+
+export interface PublishProgress {
+  stage: "validating" | "moderating" | "requesting_uploads" | "uploading" | "creating_post";
+  completed: number;
+  total: number;
+}
+
+export interface PublishDependencies {
+  files: File[];
+  onProgress?: (progress: PublishProgress) => void;
+}
+
+/**
+ * Client orchestration for the Phase 2 publish pipeline.
+ *
+ * Trusted work remains behind server boundaries: moderation, signed upload
+ * URL issuance, and the final transactional post creation. No client step
+ * declares a post published on its own.
+ */
+export async function publishPost(draft: PostDraft, { files, onProgress }: PublishDependencies): Promise<PublishPostInput> {
+  const prepared = preparePostPublishInput(draft);
+  if (files.length !== prepared.media.length) {
+    throw new Error("Selected media no longer matches the post draft.");
+  }
+
+  onProgress?.({ stage: "validating", completed: 0, total: files.length });
+
+  onProgress?.({ stage: "moderating", completed: 0, total: files.length });
+  const moderationResults = await Promise.all(files.map((file) => moderatePostMedia(file)));
+  moderationResults.forEach(assertMediaAllowed);
+
+  onProgress?.({ stage: "requesting_uploads", completed: 0, total: files.length });
+  const uploads = await requestUploadUrls(prepared.media);
+  if (uploads.length !== files.length) {
+    throw new Error("Upload service returned an unexpected number of upload targets.");
+  }
+
+  onProgress?.({ stage: "uploading", completed: 0, total: files.length });
+  let completed = 0;
+  await Promise.all(uploads.map(async (upload, index) => {
+    await uploadMedia(files[index], upload);
+    completed += 1;
+    onProgress?.({ stage: "uploading", completed, total: files.length });
+  }));
+
+  onProgress?.({ stage: "creating_post", completed: files.length, total: files.length });
+  return prepared;
+}
