@@ -1,5 +1,13 @@
 import { moderatePostMedia, assertMediaAllowed } from "./post-moderation";
-import { preparePostPublishInput, requestUploadUrls, uploadMedia, type PublishPostInput } from "./post.service";
+import {
+  createPostTransaction,
+  prepareCreatePostTransaction,
+  preparePostPublishInput,
+  requestUploadUrls,
+  uploadMedia,
+  type PublishPostInput,
+} from "./post.service";
+import type { CreatePostTransactionResult } from "./post-create.contract";
 import type { PostDraft } from "./post.schema";
 
 export interface PublishProgress {
@@ -20,7 +28,10 @@ export interface PublishDependencies {
  * URL issuance, and the final transactional post creation. No client step
  * declares a post published on its own.
  */
-export async function publishPost(draft: PostDraft, { files, onProgress }: PublishDependencies): Promise<PublishPostInput> {
+export async function publishPost(
+  draft: PostDraft,
+  { files, onProgress }: PublishDependencies,
+): Promise<CreatePostTransactionResult> {
   const prepared = preparePostPublishInput(draft);
   if (files.length !== prepared.media.length) {
     throw new Error("Selected media no longer matches the post draft.");
@@ -47,5 +58,6 @@ export async function publishPost(draft: PostDraft, { files, onProgress }: Publi
   }));
 
   onProgress?.({ stage: "creating_post", completed: files.length, total: files.length });
-  return prepared;
+  const transactionInput = prepareCreatePostTransaction(prepared, uploads);
+  return createPostTransaction(transactionInput);
 }
