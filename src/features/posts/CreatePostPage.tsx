@@ -126,10 +126,9 @@ export function CreatePostPage({ onBack }: { onBack: () => void }) {
   }
 
   const progressLabel = publishProgress?.stage === "validating" ? "Validating…"
-    : publishProgress?.stage === "moderating" ? "Checking media…"
-    : publishProgress?.stage === "requesting_uploads" ? "Preparing secure uploads…"
-    : publishProgress?.stage === "uploading" ? `Uploading ${publishProgress.completed}/${publishProgress.total}…`
-    : publishProgress?.stage === "creating_post" ? "Creating post…"
+    : publishProgress?.stage === "requesting_uploads" ? "Preparing local upload…"
+    : publishProgress?.stage === "uploading" ? `Saving ${publishProgress.completed}/${publishProgress.total}…`
+    : publishProgress?.stage === "creating_post" ? "Creating local post…"
     : "Publish";
 
   return (
