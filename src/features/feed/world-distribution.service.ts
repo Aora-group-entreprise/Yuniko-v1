@@ -9,7 +9,12 @@ import {
 const STATE_KEY = "yuniko.post-distribution.v1";
 const DEFAULT_COHORT = ["MG", "FR", "US", "BR", "IN", "NG", "JP"];
 
-type DistributionState = Record<string, DistributionStage>;
+type DistributionPostState = {
+  stage: DistributionStage;
+  viewsAtStageStart: number;
+};
+
+type DistributionState = Record<string, DistributionPostState>;
 
 type CountryPerformance = {
   countryCode: string;
@@ -25,8 +30,20 @@ function readState(): DistributionState {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(STATE_KEY) ?? "{}");
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+
     return Object.fromEntries(
-      Object.entries(parsed).filter(([, value]) => value === 3 || value === 5 || value === 7 || value === "global"),
+      Object.entries(parsed).flatMap(([postId, value]) => {
+        if (value === 3 || value === 5 || value === 7 || value === "global") {
+          return [[postId, { stage: value, viewsAtStageStart: 0 }]];
+        }
+        if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+        const stage = (value as { stage?: unknown }).stage;
+        const viewsAtStageStart = (value as { viewsAtStageStart?: unknown }).viewsAtStageStart;
+        if ((stage === 3 || stage === 5 || stage === 7 || stage === "global") && typeof viewsAtStageStart === "number") {
+          return [[postId, { stage, viewsAtStageStart: Math.max(0, viewsAtStageStart) }]];
+        }
+        return [];
+      }),
     ) as DistributionState;
   } catch {
     return {};
@@ -35,7 +52,11 @@ function readState(): DistributionState {
 
 function writeState(state: DistributionState): void {
   if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch { /* best effort */ }
+  try {
+    window.localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  } catch {
+    // Best effort only.
+  }
 }
 
 function countryFromEvent(event: ReturnType<typeof getInteractionEvents>[number]): string | null {
@@ -85,9 +106,17 @@ export function getCountryPerformance(postId: string): CountryPerformance[] {
   return [...byCountry.values()];
 }
 
-function cohortStrength(postId: string, countries: string[]): number {
+function cohortPerformance(postId: string, countries: string[]): CountryPerformance[] {
   const allowed = new Set(normalizeCountryCodes(countries));
-  const performance = getCountryPerformance(postId).filter((item) => allowed.has(item.countryCode));
+  return getCountryPerformance(postId).filter((item) => allowed.has(item.countryCode));
+}
+
+function cohortViews(postId: string, countries: string[]): number {
+  return cohortPerformance(postId, countries).reduce((sum, item) => sum + item.views, 0);
+}
+
+function cohortStrength(postId: string, countries: string[]): number {
+  const performance = cohortPerformance(postId, countries);
   const views = performance.reduce((sum, item) => sum + item.views, 0);
   if (views < DISTRIBUTION_RULES.minimumViewsForPromotion) return 0;
 
@@ -106,29 +135,38 @@ function nextStage(stage: DistributionStage): DistributionStage {
 }
 
 /**
- * Promotion is deliberately sequential: 3 -> 5 -> 7 -> global.
- * A post can advance only one stage per evaluation and the previous countries
- * remain included because the cohort is always taken from its beginning.
+ * Promotion is sequential: 3 -> 5 -> 7 -> global.
+ * Each stage needs its own minimum-view window before another promotion can
+ * happen, preventing repeated feed refreshes from instantly skipping stages.
  */
 export function getPostDistributionStage(postId: string): DistributionStage {
   const state = readState();
-  const current = state[postId] ?? 3;
+  const currentState = state[postId] ?? { stage: 3 as DistributionStage, viewsAtStageStart: 0 };
+  const current = currentState.stage;
+
   if (current === "global") return current;
 
   const cohort = getWorldCohort();
   const activeCountries = cohort.slice(0, current);
-  const strength = cohortStrength(postId, activeCountries);
+  const totalViews = cohortViews(postId, activeCountries);
+  const stageViews = Math.max(0, totalViews - currentState.viewsAtStageStart);
 
-  if (strength < DISTRIBUTION_RULES.strongAudienceRate) {
+  if (stageViews < DISTRIBUTION_RULES.minimumViewsForPromotion) {
     if (!state[postId]) {
-      state[postId] = 3;
+      state[postId] = currentState;
       writeState(state);
     }
     return current;
   }
 
+  const strength = cohortStrength(postId, activeCountries);
+  if (strength < DISTRIBUTION_RULES.strongAudienceRate) return current;
+
   const promoted = nextStage(current);
-  state[postId] = promoted;
+  state[postId] = {
+    stage: promoted,
+    viewsAtStageStart: totalViews,
+  };
   writeState(state);
   return promoted;
 }
