@@ -1,4 +1,3 @@
-import { moderatePostMedia, assertMediaAllowed } from "./post-moderation";
 import {
   createPostTransaction,
   prepareCreatePostTransaction,
@@ -11,7 +10,7 @@ import type { CreatePostTransactionResult } from "./post-create.contract";
 import type { PostDraft } from "./post.schema";
 
 export interface PublishProgress {
-  stage: "validating" | "moderating" | "requesting_uploads" | "uploading" | "creating_post";
+  stage: "validating" | "requesting_uploads" | "uploading" | "creating_post";
   completed: number;
   total: number;
 }
@@ -22,11 +21,12 @@ export interface PublishDependencies {
 }
 
 /**
- * Client orchestration for the Phase 2 publish pipeline.
+ * Frontend-only Phase 2 orchestration.
  *
- * Trusted work remains behind server boundaries: moderation, signed upload
- * URL issuance, and the final transactional post creation. No client step
- * declares a post published on its own.
+ * Media is compressed and persisted to IndexedDB, while validated post
+ * metadata is persisted locally. No backend, Supabase, PostgreSQL or real
+ * moderation pipeline is claimed here. The same preparation contract is kept
+ * ready for the future trusted server transaction.
  */
 export async function publishPost(
   draft: PostDraft,
@@ -39,14 +39,10 @@ export async function publishPost(
 
   onProgress?.({ stage: "validating", completed: 0, total: files.length });
 
-  onProgress?.({ stage: "moderating", completed: 0, total: files.length });
-  const moderationResults = await Promise.all(files.map((file) => moderatePostMedia(file)));
-  moderationResults.forEach(assertMediaAllowed);
-
   onProgress?.({ stage: "requesting_uploads", completed: 0, total: files.length });
   const uploads = await requestUploadUrls(prepared.media);
   if (uploads.length !== files.length) {
-    throw new Error("Upload service returned an unexpected number of upload targets.");
+    throw new Error("Local upload service returned an unexpected number of upload targets.");
   }
 
   onProgress?.({ stage: "uploading", completed: 0, total: files.length });
