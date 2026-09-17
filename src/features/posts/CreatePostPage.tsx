@@ -1,6 +1,7 @@
 import imageCompression from "browser-image-compression";
 import { ArrowLeft, ImagePlus, LoaderCircle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { createPostId } from "./post.service";
 import { generatePostBlurhash } from "./post-blurhash";
 import { publishPost, type PublishProgress } from "./post-publish";
@@ -13,6 +14,7 @@ const MAX_MEDIA = 10;
 const MAX_FILE_MB = 20;
 
 export function CreatePostPage({ onBack }: { onBack: () => void }) {
+  const queryClient = useQueryClient();
   const draft = usePostStore((state) => state.draft);
   const setDraft = usePostStore((state) => state.setDraft);
   const createPostDraft = usePostStore((state) => state.createPostDraft);
@@ -109,6 +111,10 @@ export function CreatePostPage({ onBack }: { onBack: () => void }) {
       draft.media.forEach((media) => URL.revokeObjectURL(media.url));
       clearDraft();
       setFiles([]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["feed", "following", "chronological"] }),
+        queryClient.invalidateQueries({ queryKey: ["profile", "sofia.park"] }),
+      ]);
       onBack();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Publishing is unavailable right now.");
