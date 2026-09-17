@@ -18,6 +18,7 @@ export const publicProfileSchema = z.object({
   followingCount: z.number().int().nonnegative(),
   postCount: z.number().int().nonnegative(),
   isPrivate: z.boolean(),
+  followStatus: z.enum(["none", "requested", "following", "self"]).optional(),
   posts: z.array(profilePostSchema),
 });
 
