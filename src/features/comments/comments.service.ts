@@ -1,4 +1,5 @@
 import { commentsSchema, commentSchema, type Comment, type CommentAuthor } from "./comment.schema";
+import { getBlockedUserIds } from "../moderation/moderation.service";
 
 const STORAGE_KEY = "yuniko.comments.v1";
 
@@ -20,14 +21,19 @@ function writeComments(comments: Comment[]): void {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(comments));
 }
 
+function visibleComments(comments: Comment[]): Comment[] {
+  const blocked = new Set(getBlockedUserIds());
+  return comments.filter((comment) => !blocked.has(comment.author.id));
+}
+
 export function listComments(postId: string): Comment[] {
-  return readComments()
+  return visibleComments(readComments())
     .filter((comment) => comment.postId === postId)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 export function listAllLocalComments(): Comment[] {
-  return readComments();
+  return visibleComments(readComments());
 }
 
 export function createLocalComment(input: {
