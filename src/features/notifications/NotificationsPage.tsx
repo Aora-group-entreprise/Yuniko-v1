@@ -1,6 +1,7 @@
 import { Bell, Heart, MessageCircle, Bookmark, Share2, UserPlus, CheckCheck } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getNotifications, markAllNotificationsRead, markNotificationRead, notificationTypeLabel } from "./notifications.service";
+import { getNotifications, markAllNotificationsRead, markNotificationRead, notificationTypeLabel, subscribeToNotifications } from "./notifications.service";
+import { useEffect } from "react";
 
 const icons = { like: Heart, comment: MessageCircle, reply: MessageCircle, save: Bookmark, share: Share2, follow: UserPlus, follow_request: UserPlus };
 
@@ -8,6 +9,12 @@ export function NotificationsPage({ onBack }: { onBack: () => void }) {
   const queryClient = useQueryClient();
   const { data = [], isLoading } = useQuery({ queryKey: ["notifications"], queryFn: getNotifications });
   const unread = data.filter((item) => !item.read).length;
+
+  useEffect(() => {
+    return subscribeToNotifications(() => {
+      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    });
+  }, [queryClient]);
 
   const markRead = async (id: string) => {
     await markNotificationRead(id);
