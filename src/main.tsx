@@ -5,6 +5,7 @@ import { FeedPage } from "./features/feed/FeedPage";
 import "./styles.css";
 import "./legacy-layout.css";
 import "./phase4.css";
+import "./messages.css";
 
 const queryClient = new QueryClient();
 
