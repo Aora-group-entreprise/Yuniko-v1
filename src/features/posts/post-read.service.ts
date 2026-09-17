@@ -44,3 +44,18 @@ export async function getPostById(postId: string): Promise<PostRecord> {
   if (!post) throw new Error("Post not found");
   return post;
 }
+
+/**
+ * Temporary Phase 2 write seam. The real implementation will execute the
+ * authenticated server transaction and append post_edits in Phase 1/DB.
+ */
+export async function updatePostCaption(postId: string, caption: string): Promise<PostRecord> {
+  const nextCaption = z.string().max(2200).parse(caption).trim();
+  if (!nextCaption) throw new Error("Caption cannot be empty");
+
+  const post = demoPosts.find((item) => item.id === postId);
+  if (!post) throw new Error("Post not found");
+
+  post.caption = nextCaption;
+  return postRecordSchema.parse({ ...post });
+}
