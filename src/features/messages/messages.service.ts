@@ -1,4 +1,5 @@
 import { messageLogSchema, conversationListSchema, type Conversation, type Message } from "./message.schema";
+import { getBlockedUserIds } from "../moderation/moderation.service";
 
 const MESSAGE_KEY = "yuniko.messages.v1";
 const ACTOR_KEY = "yuniko.local-actor.v1";
@@ -66,21 +67,27 @@ function seedIfNeeded(): Message[] {
   return seed;
 }
 
+function blockedIds(): Set<string> {
+  return new Set(getBlockedUserIds());
+}
+
 export function getConversations(): Conversation[] {
   const messages = seedIfNeeded();
   const currentActor = actorId();
+  const blocked = blockedIds();
   const byParticipant = new Map<string, Message[]>();
 
   for (const message of messages) {
     if (message.senderId !== currentActor && message.recipientId !== currentActor) continue;
     const participantId = message.senderId === currentActor ? message.recipientId : message.senderId;
+    if (blocked.has(participantId)) continue;
     const list = byParticipant.get(participantId) ?? [];
     list.push(message);
     byParticipant.set(participantId, list);
   }
 
   for (const person of DEMO_PEOPLE) {
-    if (!byParticipant.has(person.id)) byParticipant.set(person.id, []);
+    if (!blocked.has(person.id) && !byParticipant.has(person.id)) byParticipant.set(person.id, []);
   }
 
   const conversations = [...byParticipant.entries()].map(([participantId, list]) => {
@@ -111,12 +118,17 @@ export function getConversations(): Conversation[] {
 }
 
 export function getConversationMessages(conversationId: string): Message[] {
-  return readMessages().filter((message) => message.conversationId === conversationId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const blocked = blockedIds();
+  const actor = actorId();
+  return readMessages()
+    .filter((message) => message.conversationId === conversationId)
+    .filter((message) => !blocked.has(message.senderId === actor ? message.recipientId : message.senderId))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 export function sendMessage(conversationId: string, recipientId: string, body: string): Message | null {
   const normalized = body.trim().slice(0, 4000);
-  if (!normalized) return null;
+  if (!normalized || getBlockedUserIds().includes(recipientId)) return null;
 
   const message: Message = {
     id: `msg-${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
