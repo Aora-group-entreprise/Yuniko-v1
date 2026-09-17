@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getBlockedUserIds } from "../moderation/moderation.service";
 
 const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
 const FOLLOW_LIST_STATE_KEY = "yuniko.follow-lists.v1";
@@ -56,18 +57,23 @@ function writeState(state: FollowListState): void {
   try { window.localStorage.setItem(FOLLOW_LIST_STATE_KEY, JSON.stringify(state)); } catch { /* best effort */ }
 }
 
+function visible(items: FollowListItem[]): FollowListItem[] {
+  const blocked = new Set(getBlockedUserIds());
+  return items.filter((item) => !blocked.has(item.id));
+}
+
 export async function listFollowers(_profileId: string, _cursor?: string): Promise<FollowListItem[]> {
   const state = readState();
-  return followListItemSchema.array().parse(followers.filter((item) => !state.removedFollowerIds.includes(item.id)));
+  return followListItemSchema.array().parse(visible(followers.filter((item) => !state.removedFollowerIds.includes(item.id))));
 }
 
 export async function listFollowing(_profileId: string, _cursor?: string): Promise<FollowListItem[]> {
-  return followListItemSchema.array().parse(following);
+  return followListItemSchema.array().parse(visible(following));
 }
 
 export async function listFollowRequests(_profileId: string): Promise<FollowListItem[]> {
   const state = readState();
-  return followListItemSchema.array().parse(requests.filter((item) => !state.handledRequestIds.includes(item.id)));
+  return followListItemSchema.array().parse(visible(requests.filter((item) => !state.handledRequestIds.includes(item.id))));
 }
 
 export async function removeFollower(profileId: string): Promise<void> {
