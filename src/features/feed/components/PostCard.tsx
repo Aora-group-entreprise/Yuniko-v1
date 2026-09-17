@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Bookmark, Eye, FolderPlus, Heart, MessageCircle, MoreHorizontal, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { FeedPost } from "../feed.schema";
@@ -15,7 +15,9 @@ import { ModerationSheet } from "../../moderation/ModerationSheet";
 
 const GRADIENT = "linear-gradient(135deg,#ff006e 0%,#8b00ff 100%)";
 
-export function PostCard({ post }: { post: FeedPost }) {
+type PostCardProps = { post: FeedPost };
+
+export const PostCard = memo(function PostCard({ post }: PostCardProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -76,7 +78,7 @@ export function PostCard({ post }: { post: FeedPost }) {
       {moderationOpen && <ModerationSheet targetType="post" targetId={post.id} targetName={post.author.displayName} onClose={() => setModerationOpen(false)} />}
     </>
   );
-}
+});
 
 function ActionButton({ label, onClick, children }: { label: string; onClick?: () => void; children: React.ReactNode }) {
   return (
