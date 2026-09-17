@@ -1,8 +1,9 @@
 import imageCompression from "browser-image-compression";
 import { ArrowLeft, ImagePlus, LoaderCircle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { createPost, createPostId } from "./post.service";
+import { createPostId } from "./post.service";
 import { generatePostBlurhash } from "./post-blurhash";
+import { publishPost, type PublishProgress } from "./post-publish";
 import { clearPostDraft, loadPostDraft, savePostDraft } from "./post-draft.storage";
 import { postDraftSchema, type PostMedia, type PostVisibility } from "./post.schema";
 import { usePostStore } from "./post.store";
@@ -22,6 +23,8 @@ export function CreatePostPage({ onBack }: { onBack: () => void }) {
   const [files, setFiles] = useState<File[]>([]);
   const [loadingDraft, setLoadingDraft] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishProgress, setPublishProgress] = useState<PublishProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,9 +52,9 @@ export function CreatePostPage({ onBack }: { onBack: () => void }) {
   }, [createPostDraft, setDraft]);
 
   useEffect(() => {
-    if (!draft || loadingDraft) return;
+    if (!draft || loadingDraft || publishing) return;
     void savePostDraft(draft, files);
-  }, [draft, files, loadingDraft]);
+  }, [draft, files, loadingDraft, publishing]);
 
   async function handleFiles(selected: FileList | null) {
     if (!selected) return;
@@ -84,9 +87,7 @@ export function CreatePostPage({ onBack }: { onBack: () => void }) {
           },
         });
       }
-      if (!draft) {
-        createPostDraft();
-      }
+      if (!draft) createPostDraft();
       processed.forEach((item) => usePostStore.getState().addMedia(item.media));
       setFiles((current) => [...current, ...processed.map((item) => item.file)]);
     } catch {
@@ -98,40 +99,63 @@ export function CreatePostPage({ onBack }: { onBack: () => void }) {
   }
 
   async function handlePublish() {
-    if (!draft || draft.media.length === 0) return;
+    if (!draft || draft.media.length === 0 || publishing) return;
     setError(null);
-    try { await createPost(draft); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Publishing is unavailable right now."); }
+    setPublishing(true);
+    setPublishProgress(null);
+    try {
+      await publishPost(draft, { files, onProgress: setPublishProgress });
+      await clearPostDraft();
+      draft.media.forEach((media) => URL.revokeObjectURL(media.url));
+      clearDraft();
+      setFiles([]);
+      onBack();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Publishing is unavailable right now.");
+    } finally {
+      setPublishing(false);
+    }
   }
 
   async function handleDiscard() {
     draft?.media.forEach((media) => URL.revokeObjectURL(media.url));
-    await clearPostDraft(); clearDraft(); setFiles([]); onBack();
+    await clearPostDraft();
+    clearDraft();
+    setFiles([]);
+    onBack();
   }
+
+  const progressLabel = publishProgress?.stage === "validating" ? "Validating…"
+    : publishProgress?.stage === "moderating" ? "Checking media…"
+    : publishProgress?.stage === "requesting_uploads" ? "Preparing secure uploads…"
+    : publishProgress?.stage === "uploading" ? `Uploading ${publishProgress.completed}/${publishProgress.total}…`
+    : publishProgress?.stage === "creating_post" ? "Creating post…"
+    : "Publish";
 
   return (
     <main className="create-post-shell">
       <header className="create-post-header">
-        <button type="button" className="profile-header-button" aria-label="Back" onClick={onBack}><ArrowLeft size={21} /></button>
+        <button type="button" className="profile-header-button" aria-label="Back" onClick={onBack} disabled={publishing}><ArrowLeft size={21} /></button>
         <strong>Create Post</strong>
-        <button type="button" className="create-post-publish" disabled={!draft?.media.length || processing} onClick={() => void handlePublish}>Publish</button>
+        <button type="button" className="create-post-publish" disabled={!draft?.media.length || processing || publishing} onClick={() => void handlePublish}>{publishing ? progressLabel : "Publish"}</button>
       </header>
       <section className="create-post-content">
         {loadingDraft ? <div className="create-post-loading"><LoaderCircle size={20} className="spin" />Loading draft…</div> : <>
           <div className="post-media-picker">
             {draft?.media.map((media) => <div className="post-media-preview" key={media.id}>
               <img src={media.url} alt="Selected media preview" />
-              <button type="button" aria-label={`Remove ${media.fileName}`} onClick={() => { URL.revokeObjectURL(media.url); removeMedia(media.id); setFiles((current) => current.filter((file) => file.name !== media.fileName)); }}><X size={16} /></button>
+              <button type="button" aria-label={`Remove ${media.fileName}`} disabled={publishing} onClick={() => { URL.revokeObjectURL(media.url); removeMedia(media.id); setFiles((current) => current.filter((file) => file.name !== media.fileName)); }}><X size={16} /></button>
             </div>)}
-            {(!draft || draft.media.length < MAX_MEDIA) && <button type="button" className="add-media-tile" onClick={() => inputRef.current?.click()} disabled={processing}>
+            {(!draft || draft.media.length < MAX_MEDIA) && <button type="button" className="add-media-tile" onClick={() => inputRef.current?.click()} disabled={processing || publishing}>
               {processing ? <LoaderCircle size={26} className="spin" /> : <ImagePlus size={26} />}<span>{processing ? "Preparing…" : "Add photos"}</span>
             </button>}
           </div>
-          <input ref={inputRef} className="visually-hidden" type="file" accept="image/*" multiple onChange={(event) => void handleFiles(event.target.files)} />
-          <div className="create-post-field"><label htmlFor="post-caption">Caption</label><textarea id="post-caption" value={draft?.caption ?? ""} maxLength={2200} placeholder="Write a caption…" onChange={(event) => setCaption(event.target.value)} disabled={!draft} /><span>{draft?.caption.length ?? 0}/2200</span></div>
-          <div className="create-post-field"><label htmlFor="post-visibility">Visibility</label><select id="post-visibility" value={draft?.visibility ?? "public"} onChange={(event) => setVisibility(event.target.value as PostVisibility)} disabled={!draft}><option value="public">Public</option><option value="followers">Followers</option><option value="private">Only me</option></select></div>
+          <input ref={inputRef} className="visually-hidden" type="file" accept="image/*" multiple onChange={(event) => void handleFiles(event.target.files)} disabled={publishing} />
+          <div className="create-post-field"><label htmlFor="post-caption">Caption</label><textarea id="post-caption" value={draft?.caption ?? ""} maxLength={2200} placeholder="Write a caption…" onChange={(event) => setCaption(event.target.value)} disabled={!draft || publishing} /><span>{draft?.caption.length ?? 0}/2200</span></div>
+          <div className="create-post-field"><label htmlFor="post-visibility">Visibility</label><select id="post-visibility" value={draft?.visibility ?? "public"} onChange={(event) => setVisibility(event.target.value as PostVisibility)} disabled={!draft || publishing}><option value="public">Public</option><option value="followers">Followers</option><option value="private">Only me</option></select></div>
+          {publishing && publishProgress && <div className="create-post-loading" role="status"><LoaderCircle size={18} className="spin" />{progressLabel}</div>}
           {error && <p className="create-post-error" role="alert">{error}</p>}
-          <button type="button" className="create-post-discard" onClick={() => void handleDiscard}>Discard draft</button>
+          <button type="button" className="create-post-discard" onClick={() => void handleDiscard} disabled={publishing}>Discard draft</button>
         </>}
       </section>
     </main>
