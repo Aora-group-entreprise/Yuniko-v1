@@ -1,9 +1,20 @@
-import { postDraftSchema, type PostDraft, type PostMedia } from "./post.schema";
+import { parsePostContent } from "./post-content";
+import { publishPostSchema, type PostDraft, type PostMedia, type PostVisibility } from "./post.schema";
 
 export interface UploadRequest {
   mediaId: string;
   uploadUrl: string;
   publicUrl: string;
+}
+
+export interface PublishPostInput {
+  id: string;
+  caption: string;
+  visibility: PostVisibility;
+  media: PostMedia[];
+  hashtags: string[];
+  mentions: string[];
+  createdAt: string;
 }
 
 /**
@@ -20,9 +31,25 @@ export async function uploadMedia(_file: File, _upload: UploadRequest): Promise<
   throw new Error("Direct media upload is not configured yet. Complete the signed storage endpoint in Phase 1.");
 }
 
+/** Pure preparation shared by the future server transaction boundary. */
+export function preparePostPublishInput(draft: PostDraft): PublishPostInput {
+  const parsed = publishPostSchema.parse(draft);
+  const { hashtags, mentions } = parsePostContent(parsed.caption);
+
+  return {
+    id: parsed.id,
+    caption: parsed.caption.trim(),
+    visibility: parsed.visibility,
+    media: parsed.media,
+    hashtags,
+    mentions,
+    createdAt: parsed.createdAt,
+  };
+}
+
 export async function createPost(draft: PostDraft): Promise<PostDraft> {
-  const parsed = postDraftSchema.parse(draft);
-  throw new Error(`Post service is not configured yet. Draft ${parsed.id} is ready for the server transaction.`);
+  const prepared = preparePostPublishInput(draft);
+  throw new Error(`Post service is not configured yet. Draft ${prepared.id} is ready for the server transaction.`);
 }
 
 export function createPostId(): string {
