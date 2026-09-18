@@ -41,7 +41,8 @@ export async function signUp(input: SignUpInput) {
       data: {
         username: parsed.username.toLowerCase(),
         display_name: parsed.displayName,
-        country: parsed.country ?? "",\n        age: parsed.age,
+        country: parsed.country ?? "",
+        age: parsed.age,
       },
     },
   });
@@ -70,7 +71,13 @@ export async function resetPassword(input: ResetPasswordInput) {
   if (error) throw error;
 }
 
-export async function updatePassword(password: string) {\n  if (password.length < 6) throw new Error("Password must be at least 6 characters.");\n  const { error } = await requireSupabase().auth.updateUser({ password });\n  if (error) throw error;\n}\n\nexport async function signOut() {
+export async function updatePassword(password: string) {
+  if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+  const { error } = await requireSupabase().auth.updateUser({ password });
+  if (error) throw error;
+}
+
+export async function signOut() {
   const { error } = await requireSupabase().auth.signOut();
   if (error) throw error;
 }
