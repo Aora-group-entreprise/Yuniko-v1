@@ -1,58 +1,107 @@
-import { chronologicalFeedSchema, type ChronologicalFeed } from "./feed.schema";
-import { listPosts } from "../posts/post-read.service";
-import { getFollowingProfileIds } from "../follow/follow.service";
-import { isPostDistributedToCountry } from "./world-distribution.service";
+import { requireSupabase, requireYunikoDb } from "../../lib/supabase";
+import { chronologicalFeedSchema, type ChronologicalFeed, type FeedPost } from "./feed.schema";
 import { getBlockedUserIds } from "../moderation/moderation.service";
 
-const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
-const VIEWER_COUNTRY_KEY = "yuniko.viewer-country.v1";
-const DEFAULT_VIEWER_COUNTRY = "MG";
+export type FeedCursor = { createdAt: string; id: string } | null;
+export type FeedPage = ChronologicalFeed & { nextCursor: FeedCursor; hasMore: boolean };
 
-function viewerCountry(): string {
-  if (typeof window === "undefined") return DEFAULT_VIEWER_COUNTRY;
-  const value = window.localStorage.getItem(VIEWER_COUNTRY_KEY)?.trim().toUpperCase();
-  return value || DEFAULT_VIEWER_COUNTRY;
+const PAGE_SIZE = 20;
+const CANDIDATE_BATCH = 80;
+const SEEN_WINDOW_DAYS = 7;
+
+async function currentUserId(): Promise<string> {
+  const { data: { user }, error } = await requireSupabase().auth.getUser();
+  if (error || !user) throw new Error("Authentication required.");
+  return user.id;
 }
 
-function removeBlockedPosts(posts: ChronologicalFeed["posts"]): ChronologicalFeed["posts"] {
+async function loadFeedPosts(rows: Array<Record<string, unknown>>): Promise<FeedPost[]> {
+  if (!rows.length) return [];
+  const db = requireYunikoDb();
+  const authorIds = [...new Set(rows.map(row => String(row.author_id)))];
+  const postIds = rows.map(row => String(row.id));
+  const [{ data: authors, error: authorError }, { data: media, error: mediaError }] = await Promise.all([
+    db.from("profiles").select("id,username,display_name,avatar_url").in("id", authorIds),
+    db.from("post_media").select("post_id,url,position").in("post_id", postIds).eq("status","ready").order("position",{ascending:true}),
+  ]);
+  if (authorError) throw authorError;
+  if (mediaError) throw mediaError;
+  const authorMap = new Map((authors ?? []).map(author => [author.id, author]));
+  const mediaMap = new Map<string,string>();
+  for (const item of media ?? []) if (!mediaMap.has(item.post_id)) mediaMap.set(item.post_id, item.url);
+
+  return chronologicalFeedSchema.shape.posts.parse(rows.map(row => {
+    const author = authorMap.get(row.author_id as string);
+    const mediaUrl = mediaMap.get(row.id as string);
+    if (!author || !mediaUrl) return null;
+    return {
+      id: row.id,
+      author: { id: author.id, username: author.username, displayName: author.display_name, avatarUrl: author.avatar_url ?? "" },
+      mediaUrl,
+      caption: row.caption ?? "",
+      hashtags: [],
+      likeCount: row.like_count ?? 0,
+      commentCount: row.comment_count ?? 0,
+      saveCount: row.save_count ?? 0,
+      shareCount: row.share_count ?? 0,
+      viewCount: row.view_count ?? 0,
+      createdAt: row.created_at,
+    };
+  }).filter(Boolean));
+}
+
+export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> {
+  const userId = await currentUserId();
+  const db = requireYunikoDb();
   const blocked = new Set(getBlockedUserIds());
-  if (blocked.size === 0) return posts;
-  return posts.filter((post) => !blocked.has(post.author.id));
+  const seenCutoff = new Date(Date.now() - SEEN_WINDOW_DAYS * 86_400_000).toISOString();
+
+  const { data: seenRows, error: seenError } = await db.from("seen_posts")
+    .select("post_id").eq("user_id", userId).gte("seen_at", seenCutoff);
+  if (seenError) throw seenError;
+  const seenIds = (seenRows ?? []).map(row => row.post_id);
+
+  let query = db.from("posts")
+    .select("id,author_id,caption,created_at,like_count,comment_count,save_count,share_count,view_count")
+    .eq("status","ready").is("deleted_at",null)
+    .order("created_at",{ascending:false}).order("id",{ascending:false})
+    .limit(CANDIDATE_BATCH);
+
+  if (cursor) {
+    query = query.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
+  }
+  if (seenIds.length) query = query.not("id","in",`(${seenIds.join(",")})`);
+
+  const { data: rows, error } = await query;
+  if (error) throw error;
+
+  const visibleRows = (rows ?? []).filter(row => !blocked.has(row.author_id));
+  const posts = await loadFeedPosts(visibleRows.slice(0, PAGE_SIZE));
+  const last = visibleRows[visibleRows.length - 1];
+  const nextCursor = last ? { createdAt: last.created_at, id: last.id } : null;
+
+  return {
+    ...chronologicalFeedSchema.parse({ posts, stories: [] }),
+    nextCursor,
+    hasMore: (rows ?? []).length >= CANDIDATE_BATCH,
+  };
 }
 
-const demoStories: ChronologicalFeed["stories"] = [
-  { id: "s1", author: { id: "1", username: "sofia.park", displayName: "Sofia Park", avatarUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg` }, mediaUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`, viewed: false },
-  { id: "s2", author: { id: "2", username: "noah.reyes", displayName: "Noah Reyes", avatarUrl: `${REFERENCE_MEDIA}/scene-dj.jpg` }, mediaUrl: `${REFERENCE_MEDIA}/scene-dj.jpg`, viewed: false },
-  { id: "s3", author: { id: "3", username: "lina.rose", displayName: "Lina Rose", avatarUrl: `${REFERENCE_MEDIA}/scene-flower.jpg` }, mediaUrl: `${REFERENCE_MEDIA}/scene-flower.jpg`, viewed: true },
-];
-
-/** Phase 2 boundary: chronological following feed. */
-export async function getChronologicalFeed(): Promise<ChronologicalFeed> {
-  const [posts, followingIds] = await Promise.all([listPosts(), Promise.resolve(getFollowingProfileIds())]);
-  const following = new Set(followingIds);
-  const visiblePosts = removeBlockedPosts(posts.filter((post) => following.has(post.author.id)));
-  const visibleStories = demoStories.filter((story) => following.has(story.author.id) && !getBlockedUserIds().includes(story.author.id));
-
-  return chronologicalFeedSchema.parse({ stories: visibleStories, posts: visiblePosts });
+export async function markPostsSeen(postIds: string[]): Promise<void> {
+  if (!postIds.length) return;
+  const userId = await currentUserId();
+  const uniqueIds = [...new Set(postIds)];
+  const { error } = await requireYunikoDb().from("seen_posts").upsert(
+    uniqueIds.map(post_id => ({ user_id: userId, post_id, seen_at: new Date().toISOString() })),
+    { onConflict: "user_id,post_id" },
+  );
+  if (error) throw error;
 }
 
-/**
- * World Feed distribution boundary.
- * Every post starts with 3 countries, then expands sequentially to 5, 7 and
- * finally worldwide when the active cohort shows strong audience signals.
- * The viewer country is read from the same local prototype setting used by
- * view telemetry, keeping distribution and measurement aligned.
- */
-export function getWorldDistributedPosts(posts: ChronologicalFeed["posts"]): ChronologicalFeed["posts"] {
-  return removeBlockedPosts(posts.filter((post) => isPostDistributedToCountry(post.id, viewerCountry())));
-}
-
-/** World Feed: progressive distribution happens before personalized ranking. */
 export async function getWorldFeed(): Promise<ChronologicalFeed> {
-  const posts = await listPosts();
-  const blocked = new Set(getBlockedUserIds());
-  return chronologicalFeedSchema.parse({
-    stories: demoStories.filter((story) => !blocked.has(story.author.id)),
-    posts: getWorldDistributedPosts(posts),
-  });
+  return (await getFeedPage(null));
+}
+
+export async function getChronologicalFeed(): Promise<ChronologicalFeed> {
+  return getWorldFeed();
 }
