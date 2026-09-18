@@ -1,6 +1,7 @@
 import { requireYunikoDb } from "../../lib/supabase";
 
-export type DistributionStage = 1 | 2 | 3 | 4;\nexport const DISTRIBUTION_STAGES = [1, 2, 3, 4] as const;
+export type DistributionStage = 1 | 2 | 3 | 4;
+export const DISTRIBUTION_STAGES = [1, 2, 3, 4] as const;
 export type DistributionDecision = "active" | "held" | "stopped";
 
 const STAGE_COUNTRIES: Record<DistributionStage, number> = { 1: 3, 2: 5, 3: 7, 4: Number.MAX_SAFE_INTEGER };
