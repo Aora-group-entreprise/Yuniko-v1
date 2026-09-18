@@ -9,7 +9,6 @@ export interface UploadRequest { mediaId: string; uploadUrl: string; publicUrl: 
 export interface PublishPostInput { id: string; caption: string; visibility: PostVisibility; media: PostMedia[]; hashtags: string[]; mentions: string[]; languageHint: PostLanguage; createdAt: string; }
 
 const postIdSchema = z.string().uuid();
-const mediaUploadSchema = z.object({ mediaId: z.string().uuid(), publicUrl: z.string().url(), objectKey: z.string().min(1) });
 
 export async function requestUploadUrls(media: PostMedia[]): Promise<UploadRequest[]> {
   const client = requireSupabase();
@@ -51,44 +50,34 @@ export function prepareCreatePostTransaction(prepared: PublishPostInput, uploads
 export async function createPostTransaction(input: CreatePostTransactionInput): Promise<CreatePostTransactionResult> {
   const validated = createPostTransactionInputSchema.parse(input);
   postIdSchema.parse(validated.id);
+
   const client = requireSupabase();
   const { data: { user }, error: userError } = await client.auth.getUser();
   if (userError) throw userError;
   if (!user) throw new Error("Not authenticated.");
 
-  const db = requireYunikoDb();
-  const { error: postError } = await db.from("posts").insert({
-    id: validated.id,
-    author_id: user.id,
-    caption: validated.caption,
-    visibility: validated.visibility,
-    status: "ready",
-    created_at: validated.createdAt,
-  });
-  if (postError) throw postError;
-
-  const mediaRows = validated.media.map((media) => ({
-    id: media.mediaId,
-    post_id: validated.id,
-    url: media.publicUrl,
-    width: media.width,
-    height: media.height,
-    blurhash: media.blurhash,
-    position: media.position,
-    status: "ready",
-    object_key: `${user.id}/posts/${media.mediaId}.${media.fileName.split(".").pop()?.toLowerCase() || "jpg"}`,
+  const media = validated.media.map((item) => ({
+    id: item.mediaId,
+    url: item.publicUrl,
+    width: item.width ?? null,
+    height: item.height ?? null,
+    blurhash: item.blurhash ?? null,
+    position: item.position,
+    object_key: `${user.id}/posts/${item.mediaId}.${item.fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg"}`,
   }));
-  const { error: mediaError } = await db.from("post_media").insert(mediaRows);
-  if (mediaError) {
-    await db.from("posts").delete().eq("id", validated.id);
-    throw mediaError;
-  }
 
-  await db.from("post_stats").upsert({ post_id: validated.id });
-  await db.from("post_distribution").upsert({ post_id: validated.id, stage: 1, countries: [] });
-  await db.from("events").insert({ user_id: user.id, post_id: validated.id, type: "post_created", weight: 1 });
+  const { data, error } = await client.schema("yunikov_v1").rpc("create_post_atomic", {
+    p_id: validated.id,
+    p_caption: validated.caption,
+    p_visibility: validated.visibility,
+    p_created_at: validated.createdAt,
+    p_media: media,
+  });
+  if (error) throw error;
 
-  return { postId: validated.id, status: "ready" };
+  const result = Array.isArray(data) ? data[0] : data;
+  if (!result?.post_id) throw new Error("Post creation returned no post id.");
+  return { postId: result.post_id, status: result.status };
 }
 
 export function createPostId(): string { return crypto.randomUUID(); }
