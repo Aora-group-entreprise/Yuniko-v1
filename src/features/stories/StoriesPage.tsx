@@ -6,17 +6,17 @@ import type { Story } from "./story.schema";
 type StoriesPageProps = { initialStoryId?: string | null; onBack: () => void };
 
 export function StoriesPage({ initialStoryId, onBack }: StoriesPageProps) {
-  const [stories, setStories] = useState<Story[]>(() => getActiveStories());
-  const [index, setIndex] = useState(() => Math.max(0, getActiveStories().findIndex((story) => story.id === initialStoryId)));
+  const [stories, setStories] = useState<Story[]>([]);
+  const [index, setIndex] = useState(0);
   const [creating, setCreating] = useState(false);
   const [url, setUrl] = useState("");
   const [caption, setCaption] = useState("");
-  const refresh = () => setStories(getActiveStories());
+  const refresh = () => { void getActiveStories().then((next) => { setStories(next); setIndex((current) => Math.min(current, Math.max(next.length - 1, 0))); }).catch(() => setStories([])); };
 
-  useEffect(() => subscribeToStories(refresh), []);
+  useEffect(() => {\n    refresh();\n    return subscribeToStories(refresh);\n  }, []);\n  useEffect(() => {\n    if (!initialStoryId || !stories.length) return;\n    const found = stories.findIndex((story) => story.id === initialStoryId);\n    if (found >= 0) setIndex(found);\n  }, [initialStoryId, stories.length]);
   useEffect(() => {
     const story = stories[index];
-    if (story && !story.viewed) markStoryViewed(story.id);
+    if (story && !story.viewed) void markStoryViewed(story.id).catch(() => undefined);
   }, [index, stories]);
 
   const current = stories[index];
@@ -37,10 +37,10 @@ export function StoriesPage({ initialStoryId, onBack }: StoriesPageProps) {
       {creating ? (
         <section className="story-create-panel">
           <h2>Create a story</h2>
-          <p>Use an image URL for this frontend prototype.</p>
+          <p>Ajoute l’URL d’une image ou vidéo accessible.</p>
           <input value={url} placeholder="Image URL" onChange={(event) => setUrl(event.target.value)} />
           <textarea value={caption} maxLength={180} placeholder="Caption (optional)" onChange={(event) => setCaption(event.target.value)} />
-          <div className="story-create-actions"><button type="button" onClick={() => setCreating(false)}>Cancel</button><button type="button" disabled={!url.trim()} onClick={publish}><Send size={16} />Publish</button></div>
+          <div className="story-create-actions"><button type="button" onClick={() => setCreating(false)}>Cancel</button><button type="button" disabled={!url.trim()} onClick={() => void publish()}><Send size={16} />Publish</button></div>
         </section>
       ) : current ? (
         <section className="story-viewer" aria-label={`Story by ${current.authorName}`}>
