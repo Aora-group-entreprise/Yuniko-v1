@@ -4,7 +4,7 @@ const commentAuthorSchema = z.object({
   id: z.string(),
   username: z.string(),
   displayName: z.string(),
-  avatarUrl: z.string().url(),
+  avatarUrl: z.string().url().nullable(),
 });
 
 export const commentSchema = z.object({
