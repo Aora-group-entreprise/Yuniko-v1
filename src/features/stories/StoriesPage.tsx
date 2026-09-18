@@ -22,9 +22,17 @@ export function StoriesPage({ initialStoryId, onBack }: StoriesPageProps) {
   const current = stories[index];
   const move = (delta: number) => setIndex((value) => Math.min(Math.max(value + delta, 0), Math.max(stories.length - 1, 0)));
 
-  const publish = () => {
-    if (!createStory(url, caption)) return;
-    setUrl(""); setCaption(""); setCreating(false); refresh(); setIndex(0);
+  const publish = async () => {
+    try {
+      await createStory(url, caption);
+      setUrl("");
+      setCaption("");
+      setCreating(false);
+      refresh();
+      setIndex(0);
+    } catch {
+      // Keep the form open so the user can retry.
+    }
   };
 
   return (
