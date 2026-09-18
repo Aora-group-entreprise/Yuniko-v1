@@ -207,3 +207,42 @@ drop trigger if exists trg_comment_reply_count on yunikov_v1.comments;
 create trigger trg_comment_reply_count
 after insert or delete on yunikov_v1.comments
 for each row execute function yunikov_v1.sync_comment_reply_count();
+
+
+-- Keep save/share counters authoritative in PostgreSQL.
+create or replace function yunikov_v1.sync_post_save_count()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' then
+    update yunikov_v1.posts set save_count = save_count + 1 where id = new.post_id;
+  elsif tg_op = 'DELETE' then
+    update yunikov_v1.posts set save_count = greatest(0, save_count - 1) where id = old.post_id;
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists trg_post_save_count on yunikov_v1.saves;
+create trigger trg_post_save_count
+after insert or delete on yunikov_v1.saves
+for each row execute function yunikov_v1.sync_post_save_count();
+
+create or replace function yunikov_v1.sync_post_share_count()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' then
+    update yunikov_v1.posts set share_count = share_count + 1 where id = new.post_id;
+  elsif tg_op = 'DELETE' then
+    update yunikov_v1.posts set share_count = greatest(0, share_count - 1) where id = old.post_id;
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists trg_post_share_count on yunikov_v1.shares;
+create trigger trg_post_share_count
+after insert or delete on yunikov_v1.shares
+for each row execute function yunikov_v1.sync_post_share_count();
+
+create index if not exists saves_post_id_idx on yunikov_v1.saves(post_id);
+create index if not exists shares_post_id_idx on yunikov_v1.shares(post_id);
