@@ -29,6 +29,41 @@ export function evaluateDistribution(input: {
   return { stage, status: "active", secondChance: false };
 }
 
+
+export type DistributionCountryMetric = {
+  countryCode: string;
+  impressions: number;
+  engagements: number;
+};
+
+export function wilsonLowerBound(successes: number, trials: number, z = 1.96): number {
+  if (trials <= 0 || successes < 0 || successes > trials) return 0;
+  const p = successes / trials;
+  const denominator = 1 + (z * z) / trials;
+  const center = p + (z * z) / (2 * trials);
+  const spread = z * Math.sqrt((p * (1 - p) + (z * z) / (4 * trials)) / trials);
+  return Math.max(0, (center - spread) / denominator);
+}
+
+export function chooseDistributionCountries(metrics: DistributionCountryMetric[], targetCount: number): string[] {
+  return [...metrics]
+    .filter(metric => metric.countryCode.trim() && metric.impressions > 0)
+    .map(metric => ({ ...metric, rate: metric.engagements / metric.impressions, lowerBound: wilsonLowerBound(metric.engagements, metric.impressions) }))
+    .sort((a, b) => b.lowerBound - a.lowerBound || b.rate - a.rate || b.impressions - a.impressions)
+    .slice(0, Math.max(1, Math.min(targetCount, metrics.length)))
+    .map(metric => metric.countryCode.trim().toUpperCase());
+}
+
+export function evaluateCountryDistribution(metrics: DistributionCountryMetric[], stage: DistributionStage, secondChanceUsed: boolean) {
+  const countries = chooseDistributionCountries(metrics, getTargetCountryCount(stage));
+  const totalImpressions = metrics.reduce((sum, metric) => sum + metric.impressions, 0);
+  const totalEngagements = metrics.reduce((sum, metric) => sum + metric.engagements, 0);
+  const engagementRate = totalImpressions > 0 ? totalEngagements / totalImpressions : 0;
+  const velocity = totalImpressions > 0 ? totalEngagements / Math.max(totalImpressions, 1) : 0;
+  const decision = evaluateDistribution({ stage, impressions: totalImpressions, engagementRate, velocity, secondChanceUsed });
+  return { ...decision, countries };
+}
+
 export async function getActiveDistribution(limit = 100) {
   const db = requireYunikoDb();
   const { data, error } = await db.from("post_distribution")
