@@ -6,7 +6,7 @@ import { CommentsSheet } from "../../comments/components/CommentsSheet";
 import { useCommentsStore } from "../../comments/comments.store";
 import "../../comments/components/comments.css";
 import { CollectionsSheet } from "../../saves/CollectionsSheet";
-import { useSavesStore } from "../../saves/saves.store";
+import { useSaves } from "../../saves/useSaves";
 import { usePostLike } from "../../interactions/usePostLike";
 import "../../saves/saves.css";
 import { ShareSheet } from "../../share/ShareSheet";
@@ -23,9 +23,9 @@ export const PostCard = memo(function PostCard({ post }: PostCardProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const [moderationOpen, setModerationOpen] = useState(false);
   const { liked, toggle: toggleLike, isPending: likePending } = usePostLike(post.id);
-  const saved = useSavesStore((state) => state.savedPostIds.includes(post.id));
+  const { savedPostIds, toggleSave, isPending: savesPending } = useSaves();
+  const saved = savedPostIds.includes(post.id);
   const localCommentCount = useCommentsStore((state) => state.comments.filter((comment) => comment.postId === post.id).length);
-  const toggleSave = useSavesStore((state) => state.toggleSave);
 
   return (
     <>
@@ -46,7 +46,7 @@ export const PostCard = memo(function PostCard({ post }: PostCardProps) {
             <Share2 size={25} strokeWidth={1.8} />
           </ActionButton>
           <div className="post-save-group">
-            <ActionButton label={saved ? "Saved" : "Save"} onClick={() => toggleSave(post.id)}>
+            <ActionButton label={saved ? "Saved" : "Save"} onClick={() => toggleSave(post.id)} disabled={savesPending}>
               <Bookmark size={25} className={saved ? "filled-save" : ""} strokeWidth={1.8} />
             </ActionButton>
             {saved && (
