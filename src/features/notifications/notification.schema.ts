@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const notificationTypeSchema = z.enum(["like", "comment", "reply", "save", "share", "follow", "follow_request"]);
+export const notificationTypeSchema = z.enum(["like", "comment", "reply", "save", "share", "follow", "follow_request", "message"]);
 
 export const notificationSchema = z.object({
   id: z.string(),
@@ -8,8 +8,10 @@ export const notificationSchema = z.object({
   actorId: z.string(),
   actorName: z.string(),
   actorUsername: z.string(),
-  actorAvatarUrl: z.string().url(),
+  actorAvatarUrl: z.string().url().or(z.literal("")),
   postId: z.string().optional(),
+  conversationId: z.string().optional(),
+  count: z.number().int().positive(),
   message: z.string(),
   createdAt: z.string(),
   read: z.boolean(),
