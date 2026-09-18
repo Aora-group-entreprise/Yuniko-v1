@@ -111,10 +111,21 @@ export async function rejectFollowRequest(followerId: string): Promise<FollowSta
   return "none";
 }
 
-export function getFollowingProfileIds(): string[] {
-  return [];
+export async function getFollowingProfileIds(): Promise<string[]> {
+  const { data: { user }, error: userError } = await requireSupabase().auth.getUser();
+  if (userError) throw userError;
+  if (!user) return [];
+  const { data, error } = await requireYunikoDb().from("follows")
+    .select("following_id")
+    .eq("follower_id", user.id)
+    .eq("status", "accepted");
+  if (error) throw error;
+  return (data ?? []).map((row) => row.following_id);
 }
 
-export function getFollowActorId(): string {
-  return "";
+export async function getFollowActorId(): Promise<string> {
+  const { data: { user }, error } = await requireSupabase().auth.getUser();
+  if (error) throw error;
+  if (!user) throw new Error("Authentication required.");
+  return user.id;
 }
