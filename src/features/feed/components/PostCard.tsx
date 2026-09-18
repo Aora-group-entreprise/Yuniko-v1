@@ -3,7 +3,6 @@ import { Bookmark, Eye, FolderPlus, Heart, MessageCircle, MoreHorizontal, Share2
 import { motion } from "framer-motion";
 import type { FeedPost } from "../feed.schema";
 import { CommentsSheet } from "../../comments/components/CommentsSheet";
-import { usePostComments } from "../../comments/useComments";
 import "../../comments/components/comments.css";
 import { CollectionsSheet } from "../../saves/CollectionsSheet";
 import { useSaves } from "../../saves/useSaves";
@@ -39,7 +38,7 @@ export const PostCard = memo(function PostCard({ post }: PostCardProps) {
           <ActionButton label={String(post.likeCount + (liked ? 1 : 0))} onClick={toggleLike} disabled={likePending}>
             <Heart size={25} className={liked ? "filled-heart" : ""} strokeWidth={1.8} />
           </ActionButton>
-          <ActionButton label={String(comments.length)} onClick={() => setCommentsOpen(true)}>
+          <ActionButton label={String(post.commentCount)} onClick={() => setCommentsOpen(true)}>
             <MessageCircle size={25} strokeWidth={1.8} />
           </ActionButton>
           <ActionButton label={String(post.shareCount)} onClick={() => setShareOpen(true)}>
