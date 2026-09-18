@@ -4,6 +4,8 @@ export type MessagePrivacy = "everyone" | "followers" | "nobody";
 export type StoryPrivacy = "everyone" | "followers" | "close_friends";
 export type CommentPrivacy = "everyone" | "followers" | "nobody";
 
+import { readStoredJson, writeStoredJson } from "../../lib/storage";
+
 export type YunikoSettings = {
   language: AppLanguage;
   appearance: Appearance;
@@ -45,8 +47,8 @@ const DEFAULTS: YunikoSettings = {
 function read(): YunikoSettings {
   if (typeof window === "undefined") return DEFAULTS;
   try {
-    const current = JSON.parse(window.localStorage.getItem(KEY) ?? "null") as Partial<YunikoSettings> | null;
-    const legacy = JSON.parse(window.localStorage.getItem(LEGACY_KEY) ?? "null") as Partial<YunikoSettings> | null;
+    const current = readStoredJson<Partial<YunikoSettings> | null>(KEY, null);
+    const legacy = readStoredJson<Partial<YunikoSettings> | null>(LEGACY_KEY, null);
     return { ...DEFAULTS, ...(legacy ?? {}), ...(current ?? {}) };
   } catch {
     return DEFAULTS;
@@ -54,8 +56,8 @@ function read(): YunikoSettings {
 }
 
 function write(settings: YunikoSettings): YunikoSettings {
-  window.localStorage.setItem(KEY, JSON.stringify(settings));
-  window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+  writeStoredJson(KEY, settings);
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
   return settings;
 }
 
