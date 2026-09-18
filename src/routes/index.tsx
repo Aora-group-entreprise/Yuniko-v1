@@ -2,15 +2,29 @@ import { useEffect, useState } from "react";
 import { FeedPage } from "../features/feed/FeedPage";
 import { AuthPage } from "../features/auth/AuthPage";
 import { AuthResetPage } from "../features/auth/AuthResetPage";
-import { getCurrentSession } from "../features/auth/auth.service";
+import { useSessionStore } from "../stores/sessionStore";
 import { requireSupabase } from "../lib/supabase";
 
 export function AppRoutes() {
-  const [authenticated,setAuthenticated]=useState<boolean|null>(null);
-  const [reset,setReset]=useState(()=>window.location.pathname==="/auth/reset");
-  useEffect(()=>{let mounted=true;const client=(()=>{try{return requireSupabase();}catch{return null;}})();if(!client){setAuthenticated(false);return;}void getCurrentSession().then(({data})=>{if(mounted)setAuthenticated(Boolean(data.session));});const {data:{subscription}}=client.auth.onAuthStateChange((_event,session)=>{if(mounted)setAuthenticated(Boolean(session));});return()=>{mounted=false;subscription.unsubscribe();};},[]);
-  if(reset)return <AuthResetPage onDone={()=>{setReset(false);setAuthenticated(true);window.history.replaceState({}, "", "/");}}/>;
-  if(authenticated===null)return <div className="auth-loading">Loading Yuniko...</div>;
-  if(!authenticated)return <AuthPage onAuthenticated={()=>setAuthenticated(true)}/>;
+  const session = useSessionStore((state) => state.session);
+  const initialized = useSessionStore((state) => state.initialized);
+  const setSession = useSessionStore((state) => state.setSession);
+  const initialize = useSessionStore((state) => state.initialize);
+  const [reset, setReset] = useState(() => typeof window !== "undefined" && window.location.pathname === "/auth/reset");
+
+  useEffect(() => {
+    let mounted = true;
+    const client = (() => { try { return requireSupabase(); } catch { return null; } })();
+    if (!client) { setSession(null); return; }
+    void initialize().catch(() => { if (mounted) setSession(null); });
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, nextSession) => {
+      if (mounted) setSession(nextSession);
+    });
+    return () => { mounted = false; subscription.unsubscribe(); };
+  }, [initialize, setSession]);
+
+  if (reset) return <AuthResetPage onDone={() => { setReset(false); setSession(session); window.history.replaceState({}, "", "/"); }} />;
+  if (!initialized) return <div className="auth-loading">Loading Yuniko...</div>;
+  if (!session) return <AuthPage onAuthenticated={() => void initialize()} />;
   return <FeedPage />;
 }
