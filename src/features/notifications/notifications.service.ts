@@ -37,7 +37,9 @@ export async function getNotifications(): Promise<Notification[]> {
       actorUsername: actor?.username ?? "yuniko",
       actorAvatarUrl: actor?.avatar_url ?? "",
       postId: row.entity_type === "post" ? row.entity_id ?? undefined : undefined,
-      message: ({like:"a aimé votre publication.",comment:"a commenté votre publication.",reply:"a répondu à votre commentaire.",save:"a enregistré votre publication.",share:"a partagé votre publication.",follow:"a commencé à vous suivre.",follow_request:"vous a envoyé une demande."} as Record<string,string>)[row.type] ?? "a interagi avec vous.",
+      conversationId: row.entity_type === "conversation" ? row.entity_id ?? undefined : undefined,
+      count: row.count,
+      message: ({like:"a aimé votre publication.",comment:"a commenté votre publication.",reply:"a répondu à votre commentaire.",save:"a enregistré votre publication.",share:"a partagé votre publication.",follow:"a commencé à vous suivre.",follow_request:"vous a envoyé une demande.",message:"vous a envoyé un message."} as Record<string,string>)[row.type] ?? "a interagi avec vous.",
       createdAt: row.created_at,
       read: row.is_read,
     });
