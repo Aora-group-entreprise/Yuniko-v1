@@ -1,13 +1,15 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
-import { useState } from "react";\nimport { useSessionStore } from "../../stores/sessionStore";
+import { useState } from "react";
+import { useSessionStore } from "../../stores/sessionStore";
 import { PostCard } from "../feed/components/PostCard";
 import { deletePost, getPostById, updatePostCaption } from "./post-read.service";
 import "./post-edit.css";
 import "./post-delete.css";
 
 export function PostDetailPage({ postId, onBack }: { postId: string; onBack: () => void }) {
-  const queryClient = useQueryClient();\n  const currentUserId = useSessionStore((state) => state.user?.id ?? null);
+  const queryClient = useQueryClient();
+  const currentUserId = useSessionStore((state) => state.user?.id ?? null);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["post", postId],
     queryFn: () => getPostById(postId),
