@@ -23,7 +23,7 @@ export function ProfilePage({ onBack, onOpenPost, profileId = "2" }: { onBack: (
 
   useEffect(() => {
     if (!data) return;
-    setFollowers(profile.followerCount);
+    setFollowers(data.followerCount);
     setStatus(data.id, data.followStatus ?? "none");
   }, [data, setStatus]);
 
@@ -49,11 +49,11 @@ export function ProfilePage({ onBack, onOpenPost, profileId = "2" }: { onBack: (
     if (optimistic === "none" && previous === "following") setFollowers((count) => Math.max(0, count - 1));
     try {
       const next = await toggleFollow(profile.id);
-      setStatus(data.id, next);
-      if (next !== optimistic) setFollowers(next === "following" ? profile.followerCount + 1 : data.followerCount);
+      setStatus(profile.id, next);
+      if (next !== optimistic) setFollowers(next === "following" ? profile.followerCount + 1 : profile.followerCount);
     } catch {
       setStatus(profile.id, previous);
-      setFollowers(data.followerCount);
+      setFollowers(profile.followerCount);
     } finally { setPending(profile.id, false); }
   }
 
