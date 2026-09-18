@@ -19,7 +19,7 @@ export const createPostTransactionInputSchema = z.object({
   media: z.array(uploadedPostMediaSchema).min(1).max(10),
   hashtags: z.array(z.string()),
   mentions: z.array(z.string()),
-  languageHint: z.enum(["EN", "FR", "unknown"]),
+  languageHint: z.enum(["en", "fr", "unknown"]),
   createdAt: z.string().datetime(),
 });
 
