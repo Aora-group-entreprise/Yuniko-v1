@@ -23,7 +23,7 @@ export function ProfilePage({ onBack, onOpenPost, profileId = "2" }: { onBack: (
 
   useEffect(() => {
     if (!data) return;
-    setFollowers(data.followerCount);
+    setFollowers(profile.followerCount);
     setStatus(data.id, data.followStatus ?? "none");
   }, [data, setStatus]);
 
@@ -34,26 +34,27 @@ export function ProfilePage({ onBack, onOpenPost, profileId = "2" }: { onBack: (
   if (isLoading) return <ProfileShell><ProfileSkeleton /></ProfileShell>;
   if (isError || !data) return <ProfileShell><div className="profile-state">Unable to load profile.</div></ProfileShell>;
 
-  const followStatus = storedStatus ?? data.followStatus ?? "none";
+  const profile = data;
+  const followStatus = storedStatus ?? profile.followStatus ?? "none";
   const isFollowing = followStatus === "following";
   const isRequested = followStatus === "requested";
 
   async function handleFollow() {
     if (isPending || followStatus === "self") return;
     const previous = followStatus;
-    const optimistic: FollowStatus = isFollowing || isRequested ? "none" : data.isPrivate ? "requested" : "following";
-    setPending(data.id, true);
-    setStatus(data.id, optimistic);
+    const optimistic: FollowStatus = isFollowing || isRequested ? "none" : profile.isPrivate ? "requested" : "following";
+    setPending(profile.id, true);
+    setStatus(profile.id, optimistic);
     if (optimistic === "following" && previous !== "following") setFollowers((count) => count + 1);
     if (optimistic === "none" && previous === "following") setFollowers((count) => Math.max(0, count - 1));
     try {
-      const next = await toggleFollow(data.id);
+      const next = await toggleFollow(profile.id);
       setStatus(data.id, next);
-      if (next !== optimistic) setFollowers(next === "following" ? data.followerCount + 1 : data.followerCount);
+      if (next !== optimistic) setFollowers(next === "following" ? profile.followerCount + 1 : data.followerCount);
     } catch {
-      setStatus(data.id, previous);
+      setStatus(profile.id, previous);
       setFollowers(data.followerCount);
-    } finally { setPending(data.id, false); }
+    } finally { setPending(profile.id, false); }
   }
 
   return (
