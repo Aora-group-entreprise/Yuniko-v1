@@ -1,12 +1,13 @@
 import { ArrowLeft, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { requireSupabase } from "../../lib/supabase";
 import { getConversationMessages, getConversations, markConversationRead, sendMessage, subscribeToConversation } from "./messages.service";
-import type { Conversation, Message } from "./messages.service";
+import type { ConversationSummary, Message } from "./messages.service";
 
 type MessagesPageProps = { onBack: () => void };
 
 export function MessagesPage({ onBack }: MessagesPageProps) {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const refresh = () => { void getConversations().then(setConversations).catch(() => setConversations([])); };
@@ -22,10 +23,7 @@ export function MessagesPage({ onBack }: MessagesPageProps) {
     </header>
     <section className="messages-list" aria-label="Conversations">
       {conversations.map(conversation => (
-        <button key={conversation.id} type="button" className="conversation-item" onClick={() => {
-          void markConversationRead(conversation.id, null);
-          setSelectedId(conversation.id);
-        }}>
+        <button key={conversation.id} type="button" className="conversation-item" onClick={() => setSelectedId(conversation.id)}>
           <img src={conversation.participantAvatarUrl} alt="" />
           <span className="conversation-copy"><strong>{conversation.participantName}</strong><small>@{conversation.participantUsername}</small><span>{conversation.lastMessagePreview}</span></span>
           {conversation.unreadCount > 0 && <b className="unread-count">{conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}</b>}
@@ -36,16 +34,24 @@ export function MessagesPage({ onBack }: MessagesPageProps) {
   </main>;
 }
 
-function ConversationView({ conversation, onBack }: { conversation: Conversation; onBack: () => void }) {
+function ConversationView({ conversation, onBack }: { conversation: ConversationSummary; onBack: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    void requireSupabase().auth.getUser().then(({ data }) => { if (active) setCurrentUserId(data.user?.id ?? null); });
+    return () => { active = false; };
+  }, []);
 
   const refresh = () => { void getConversationMessages(conversation.id).then(setMessages).catch(() => setMessages([])); };
   useEffect(() => {
     refresh();
     return subscribeToConversation(conversation.id, refresh);
   }, [conversation.id]);
+
   useEffect(() => {
     const lastId = messages.at(-1)?.id ?? null;
     if (lastId) void markConversationRead(conversation.id, lastId);
@@ -67,7 +73,11 @@ function ConversationView({ conversation, onBack }: { conversation: Conversation
       <div><strong>{conversation.participantName}</strong><small>@{conversation.participantUsername}</small></div>
     </header>
     <section className="message-thread" aria-label={`Conversation with ${conversation.participantName}`}>
-      {messages.map(message => <div key={message.id} className="message-row incoming"><div className="message-bubble">{message.body}</div></div>)}
+      {messages.map(message => (
+        <div key={message.id} className={`message-row ${message.senderId === currentUserId ? "outgoing" : "incoming"}`}>
+          <div className="message-bubble">{message.body}</div>
+        </div>
+      ))}
       <div ref={endRef} />
     </section>
     <form className="message-composer" onSubmit={event => { event.preventDefault(); void submit(); }}>
