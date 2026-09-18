@@ -9,6 +9,10 @@ const PAGE_SIZE = 20;
 const CANDIDATE_BATCH = 80;
 const SEEN_WINDOW_DAYS = 7;
 
+function extractHashtags(caption: string): string[] {
+  return [...caption.matchAll(/(^|\s)#([\p{L}\p{N}_-]{1,64})/gu)].map(match => match[2].toLowerCase());
+}
+
 async function currentUserId(): Promise<string> {
   const { data: { user }, error } = await requireSupabase().auth.getUser();
   if (error || !user) throw new Error("Authentication required.");
@@ -39,7 +43,7 @@ async function loadFeedPosts(rows: Array<Record<string, unknown>>): Promise<Feed
       author: { id: author.id, username: author.username, displayName: author.display_name, avatarUrl: author.avatar_url ?? "" },
       mediaUrl,
       caption: row.caption ?? "",
-      hashtags: [],
+      hashtags: extractHashtags(String(row.caption ?? "")),
       likeCount: row.like_count ?? 0,
       commentCount: row.comment_count ?? 0,
       saveCount: row.save_count ?? 0,
