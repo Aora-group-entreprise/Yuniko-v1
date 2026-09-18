@@ -1,5 +1,7 @@
 -- Phase 5-6: notification fan-out and canonical Realtime publication.
 
+drop function if exists yunikov_v1.create_notification(uuid,uuid,character varying,character varying,uuid,character varying);
+
 create or replace function yunikov_v1.create_notification(
   p_recipient_id uuid,
   p_actor_id uuid,
