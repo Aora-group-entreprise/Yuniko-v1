@@ -37,9 +37,13 @@ function readViewed(): ViewedMap {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(VIEWED_KEY) ?? "{}");
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    return Object.fromEntries(
-      Object.entries(parsed).filter(([, value]) => typeof value === "number"),
-    );
+    const viewed: ViewedMap = {};
+    for (const [postId, value] of Object.entries(parsed)) {
+      if (typeof value === "number") {
+        viewed[postId] = value;
+      }
+    }
+    return viewed;
   } catch {
     return {};
   }
