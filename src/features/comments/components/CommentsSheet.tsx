@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Flag, MessageCircle, Send, Trash2, X } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Comment } from "../comment.schema";
-import { CURRENT_USER, useCommentsStore } from "../comments.store";
+import { usePostComments, useCreateComment, useDeleteComment } from "../useComments";\nimport { useSessionStore } from "../../../stores/sessionStore";
 import { ModerationSheet } from "../../moderation/ModerationSheet";
 import "./comments.css";
 
@@ -19,31 +19,32 @@ function formatCommentDate(value: string): string {
 }
 
 export function CommentsSheet({ postId, onClose }: { postId: string; onClose: () => void }) {
-  const comments = useCommentsStore((state) => state.comments);
-  const addComment = useCommentsStore((state) => state.addComment);
-  const deleteComment = useCommentsStore((state) => state.deleteComment);
+  const { data: comments = [], isLoading } = usePostComments(postId);
+  const createMutation = useCreateComment(postId);
+  const deleteMutation = useDeleteComment(postId);
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [moderatingComment, setModeratingComment] = useState<Comment | null>(null);
+  const currentUser = useSessionStore((state) => state.user);
 
-  const postComments = useMemo(
-    () => comments.filter((comment) => comment.postId === postId),
-    [comments, postId],
-  );
-  const roots = postComments.filter((comment) => comment.parentId === null);
+  const roots = comments.filter((comment) => comment.parentId === null);
   const repliesByParent = new Map<string, Comment[]>();
-  for (const comment of postComments.filter((item) => item.parentId !== null)) {
+  for (const comment of comments.filter((item) => item.parentId !== null)) {
     const current = repliesByParent.get(comment.parentId!) ?? [];
     current.push(comment);
     repliesByParent.set(comment.parentId!, current);
   }
 
-  function submitComment() {
+  async function submitComment() {
     const value = draft.trim();
-    if (!value) return;
-    addComment(postId, value, replyTo?.id ?? null);
-    setDraft("");
-    setReplyTo(null);
+    if (!value || createMutation.isPending) return;
+    try {
+      await createMutation.mutateAsync({ body: value, parentId: replyTo?.id ?? null });
+      setDraft("");
+      setReplyTo(null);
+    } catch {
+      // Keep the draft visible so a transient request failure does not lose user input.
+    }
   }
 
   return (
@@ -60,17 +61,14 @@ export function CommentsSheet({ postId, onClose }: { postId: string; onClose: ()
           onMouseDown={(event) => event.stopPropagation()}
         >
           <header className="comments-sheet-header">
-            <div>
-              <strong>Commentaires</strong>
-              <span>{postComments.length}</span>
-            </div>
-            <button type="button" aria-label="Close comments" onClick={onClose}>
-              <X size={20} />
-            </button>
+            <div><strong>Commentaires</strong><span>{comments.length}</span></div>
+            <button type="button" aria-label="Close comments" onClick={onClose}><X size={20} /></button>
           </header>
 
           <div className="comments-sheet-list">
-            {roots.length === 0 ? (
+            {isLoading ? (
+              <div className="comments-empty"><MessageCircle size={28} /><strong>Chargement…</strong></div>
+            ) : roots.length === 0 ? (
               <div className="comments-empty">
                 <MessageCircle size={28} />
                 <strong>Aucun commentaire</strong>
@@ -83,9 +81,10 @@ export function CommentsSheet({ postId, onClose }: { postId: string; onClose: ()
                   comment={comment}
                   replies={repliesByParent.get(comment.id) ?? []}
                   onReply={() => setReplyTo(comment)}
-                  onDelete={() => deleteComment(comment.id)}
-                  onDeleteReply={deleteComment}
+                  onDelete={() => deleteMutation.mutate(comment.id)}
+                  onDeleteReply={(id) => deleteMutation.mutate(id)}
                   onReport={setModeratingComment}
+                  currentUserId={currentUser?.id ?? null}
                 />
               ))
             )}
@@ -95,26 +94,27 @@ export function CommentsSheet({ postId, onClose }: { postId: string; onClose: ()
             {replyTo && (
               <div className="comments-replying">
                 <span>Réponse à @{replyTo.author.username}</span>
-                <button type="button" aria-label="Cancel reply" onClick={() => setReplyTo(null)}>
-                  <X size={14} />
-                </button>
+                <button type="button" aria-label="Cancel reply" onClick={() => setReplyTo(null)}><X size={14} /></button>
               </div>
             )}
             <div className="comments-input-row">
-              <img src={CURRENT_USER.avatarUrl} alt={CURRENT_USER.displayName} />
+              <div className="comments-current-avatar" aria-hidden="true">
+                {(currentUser?.email?.slice(0, 1) ?? "?").toUpperCase()}
+              </div>
               <input
                 value={draft}
                 onChange={(event) => setDraft(event.target.value.slice(0, 1000))}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-                    submitComment();
+                    void submitComment();
                   }
                 }}
                 placeholder={replyTo ? "Écrire une réponse..." : "Ajouter un commentaire..."}
                 maxLength={1000}
+                disabled={createMutation.isPending}
               />
-              <button type="button" aria-label="Send comment" disabled={!draft.trim()} onClick={submitComment}>
+              <button type="button" aria-label="Send comment" disabled={!draft.trim() || createMutation.isPending} onClick={() => void submitComment()}>
                 <Send size={18} />
               </button>
             </div>
@@ -141,6 +141,7 @@ function CommentItem({
   onDelete,
   onDeleteReply,
   onReport,
+  currentUserId,
 }: {
   comment: Comment;
   replies: Comment[];
@@ -148,20 +149,15 @@ function CommentItem({
   onDelete: () => void;
   onDeleteReply: (id: string) => void;
   onReport: (comment: Comment) => void;
+  currentUserId: string | null;
 }) {
   return (
     <div className="comment-thread">
-      <CommentRow comment={comment} onReply={onReply} onDelete={onDelete} onReport={onReport} />
+      <CommentRow comment={comment} onReply={onReply} onDelete={onDelete} onReport={onReport} currentUserId={currentUserId} />
       {replies.length > 0 && (
         <div className="comment-replies">
           {replies.map((reply) => (
-            <CommentRow
-              key={reply.id}
-              comment={reply}
-              onReply={onReply}
-              onDelete={() => onDeleteReply(reply.id)}
-              onReport={onReport}
-            />
+            <CommentRow key={reply.id} comment={reply} onReply={onReply} onDelete={() => onDeleteReply(reply.id)} onReport={onReport} currentUserId={currentUserId} />
           ))}
         </div>
       )}
@@ -174,17 +170,19 @@ function CommentRow({
   onReply,
   onDelete,
   onReport,
+  currentUserId,
 }: {
   comment: Comment;
   onReply: () => void;
   onDelete: () => void;
   onReport: (comment: Comment) => void;
+  currentUserId: string | null;
 }) {
-  const own = comment.author.id === CURRENT_USER.id;
+  const own = comment.author.id === currentUserId;
 
   return (
     <div className="comment-row">
-      <img src={comment.author.avatarUrl} alt={comment.author.displayName} />
+      <img src={comment.author.avatarUrl ?? ""} alt={comment.author.displayName} />
       <div className="comment-body">
         <div className="comment-line">
           <strong>{comment.author.displayName}</strong>
@@ -194,16 +192,8 @@ function CommentRow({
         <p>{comment.body}</p>
         <div className="comment-actions">
           <button type="button" onClick={onReply}>Répondre</button>
-          {!own && (
-            <button type="button" onClick={() => onReport(comment)} aria-label="Report comment">
-              <Flag size={13} /> Signaler
-            </button>
-          )}
-          {own && (
-            <button type="button" onClick={onDelete} aria-label="Delete comment">
-              <Trash2 size={13} /> Supprimer
-            </button>
-          )}
+          {!own && <button type="button" onClick={() => onReport(comment)} aria-label="Report comment"><Flag size={13} /> Signaler</button>}
+          {own && <button type="button" onClick={onDelete} aria-label="Delete comment"><Trash2 size={13} /> Supprimer</button>}
         </div>
       </div>
     </div>
