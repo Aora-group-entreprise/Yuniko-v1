@@ -1,10 +1,10 @@
+import { readStoredJson, writeStoredJson } from "../../lib/storage";
+
 export type AppLanguage = "system" | "fr" | "en" | "mg";
 export type Appearance = "system" | "light" | "dark";
 export type MessagePrivacy = "everyone" | "followers" | "nobody";
 export type StoryPrivacy = "everyone" | "followers" | "close_friends";
 export type CommentPrivacy = "everyone" | "followers" | "nobody";
-
-import { readStoredJson, writeStoredJson } from "../../lib/storage";
 
 export type YunikoSettings = {
   language: AppLanguage;
