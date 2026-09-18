@@ -1,4 +1,7 @@
 -- Phase 1: bind the canonical yunikov_v1 domain model to Supabase Auth.
+
+alter table yunikov_v1.profiles add column if not exists website text check (website is null or char_length(website) <= 2048);
+alter table yunikov_v1.profiles add column if not exists banner_url text;
 -- The legacy public schema remains untouched and is not used by the application.
 
 create or replace function yunikov_v1.app_current_user_id()
@@ -46,7 +49,7 @@ begin
     set email = excluded.email;
 
   insert into yunikov_v1.profiles (id, username, display_name, country_code)
-  values (new.id, username_value::citext, display_name_value, country_value)
+  values (new.id, username_value::public.citext, display_name_value, country_value)
   on conflict (id) do update
     set username = excluded.username,
         display_name = excluded.display_name,
