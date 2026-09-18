@@ -1,21 +1,17 @@
 import { Check, FolderPlus, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { DEFAULT_COLLECTION_ID } from "./saves.service";
-import { useSavesStore } from "./saves.store";
+import { useSaves } from "./useSaves";
 
 export function CollectionsSheet({ postId, onClose }: { postId: string; onClose: () => void }) {
-  const collections = useSavesStore((state) => state.collections);
-  const savedPostIds = useSavesStore((state) => state.savedPostIds);
-  const toggleCollection = useSavesStore((state) => state.toggleCollection);
-  const addCollection = useSavesStore((state) => state.addCollection);
-  const isInCollection = useSavesStore((state) => state.isInCollection);
+  const { collections, savedPostIds, toggleCollection, addCollection, isInCollection, isPending } = useSaves();
   const [name, setName] = useState("");
   const saved = savedPostIds.includes(postId);
 
-  function create() {
-    const collection = addCollection(name);
-    if (collection) setName("");
+  async function create() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    try { await addCollection(trimmed); setName(""); } catch { /* surfaced by query state */ }
   }
 
   return (
@@ -29,8 +25,8 @@ export function CollectionsSheet({ postId, onClose }: { postId: string; onClose:
           {collections.map((collection) => {
             const selected = isInCollection(postId, collection.id);
             return (
-              <button key={collection.id} type="button" className="collection-row" onClick={() => toggleCollection(postId, collection.id)}>
-                <span className="collection-icon">{collection.id === DEFAULT_COLLECTION_ID ? "★" : "▦"}</span>
+              <button key={collection.id} type="button" className="collection-row" disabled={isPending} onClick={() => toggleCollection(postId, collection.id)}>
+                <span className="collection-icon">▦</span>
                 <span>{collection.name}</span>
                 {selected && <Check size={18} />}
               </button>
@@ -38,8 +34,8 @@ export function CollectionsSheet({ postId, onClose }: { postId: string; onClose:
           })}
         </div>
         <div className="collection-create">
-          <input value={name} onChange={(event) => setName(event.target.value.slice(0, 80))} placeholder="Nouvelle collection" maxLength={80} onKeyDown={(event) => { if (event.key === "Enter") create(); }} />
-          <button type="button" disabled={!name.trim()} onClick={create}><FolderPlus size={18} /></button>
+          <input value={name} onChange={(event) => setName(event.target.value.slice(0, 80))} placeholder="Nouvelle collection" maxLength={80} onKeyDown={(event) => { if (event.key === "Enter") void create(); }} />
+          <button type="button" disabled={!name.trim() || isPending} onClick={() => void create()}><FolderPlus size={18} /></button>
         </div>
       </motion.section>
     </div>
