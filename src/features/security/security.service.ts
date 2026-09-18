@@ -1,5 +1,7 @@
 import { loginEventLogSchema, securityStateSchema, sessionLogSchema, type LoginEvent, type SecurityState, type Session } from "./security.schema";
 
+export type { LoginEvent, SecurityState, Session } from "./security.schema";
+
 const SESSIONS_KEY = "yuniko.security.sessions.v1";
 const LOGIN_EVENTS_KEY = "yuniko.security.login-events.v1";
 const STATE_KEY = "yuniko.security.state.v1";
