@@ -1,17 +1,19 @@
 import type { ChronologicalFeed } from "./feed.schema";
 import { rankFeedPosts } from "../../algorithms/feed-ranking";
 import { requireSupabase, requireYunikoDb } from "../../lib/supabase";
+import { getBlockedUserIds } from "../moderation/moderation.service";
 
 export async function getAlgorithmicFeed<T extends ChronologicalFeed>(feed: T): Promise<T> {
   const { data: { user } } = await requireSupabase().auth.getUser();
   if (!user || !feed.posts.length) return feed;
   const db = requireYunikoDb();
 
-  const [{ data: follows }, { data: affinities }, { data: topicAffinities }, { data: distributions }] = await Promise.all([
+  const [{ data: follows }, { data: affinities }, { data: topicAffinities }, { data: distributions }, blockedIds] = await Promise.all([
     db.from("follows").select("following_id").eq("follower_id", user.id).eq("status","accepted"),
     db.from("user_affinity").select("target_user_id,score").eq("user_id", user.id),
     db.from("user_topic_affinity").select("topic_id,score").eq("user_id", user.id),
     db.from("post_distribution").select("post_id,status,stage").in("post_id", feed.posts.map((post) => post.id)),
+    getBlockedUserIds(),
   ]);
 
   const followingIds = new Set((follows ?? []).map(row => row.following_id));
@@ -27,6 +29,8 @@ export async function getAlgorithmicFeed<T extends ChronologicalFeed>(feed: T): 
       followingIds,
       affinityByAuthor,
       topicAffinity,
+      hiddenAuthorIds: new Set(blockedIds),
+      distributionFactorByPost,
       now: Date.now(),
     }),
   };
