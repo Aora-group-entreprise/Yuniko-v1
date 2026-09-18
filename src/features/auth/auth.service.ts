@@ -1,23 +1,31 @@
 import { requireSupabase } from "../../lib/supabase";
 import { resetPasswordInputSchema, signInInputSchema, signUpInputSchema, type ResetPasswordInput, type SignInInput, type SignUpInput } from "./auth.schema";
 
-async function findEmailByUsername(username: string): Promise<string> {
-  const client = requireSupabase();
-  const { data, error } = await client.from("profiles").select("id").eq("username", username.toLowerCase()).maybeSingle();
-  if (error) throw error;
-  if (!data) throw new Error("Invalid username or password.");
-  const { data: userData, error: userError } = await client.auth.getUser();
-  if (userError || !userData.user) throw new Error("Invalid username or password.");
-  return userData.user.email ?? "";
-}
+const functionUrl = () => `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sign-in-by-username`;
 
 export async function signIn(input: SignInInput) {
   const parsed = signInInputSchema.parse(input);
   const client = requireSupabase();
   const identifier = parsed.identifier.trim();
-  const email = identifier.includes("@") ? identifier : await findEmailByUsername(identifier);
-  if (!email) throw new Error("Invalid username or password.");
-  const { data, error } = await client.auth.signInWithPassword({ email, password: parsed.password });
+
+  if (identifier.includes("@")) {
+    const { data, error } = await client.auth.signInWithPassword({ email: identifier, password: parsed.password });
+    if (error) throw error;
+    return data;
+  }
+
+  const response = await fetch(functionUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string },
+    body: JSON.stringify({ username: identifier, password: parsed.password }),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error ?? "Invalid username or password.");
+
+  const { data, error } = await client.auth.setSession({
+    access_token: payload.access_token,
+    refresh_token: payload.refresh_token,
+  });
   if (error) throw error;
   return data;
 }
@@ -46,13 +54,13 @@ export async function resetPassword(input: ResetPasswordInput) {
   const client = requireSupabase();
   const identifier = parsed.identifier.trim();
   let email = identifier;
+
   if (!identifier.includes("@")) {
-    const { data, error } = await client.from("profiles").select("id").eq("username", identifier.toLowerCase()).maybeSingle();
+    const { data, error } = await client.rpc("request_password_reset_by_username", { requested_username: identifier.toLowerCase() });
     if (error) throw error;
-    if (!data) return;
-    const { data: userData } = await client.auth.getUser();
-    email = userData.user?.email ?? "";
+    email = data ?? "";
   }
+
   if (!email) return;
   const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/auth/reset" });
   if (error) throw error;
