@@ -36,7 +36,7 @@ export function useSaves() {
   });
 
   const collectionMutation = useMutation({
-    mutationFn: togglePostInCollection,
+    mutationFn: ({ postId, collectionId }: { postId: string; collectionId: string }) => togglePostInCollection(postId, collectionId),
     onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 
