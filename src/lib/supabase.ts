@@ -25,6 +25,6 @@ export function requireSupabase(): SupabaseClient {
  * Canonical Yuniko database schema.
  * Legacy public-schema tables are intentionally not used by the app.
  */
-export function requireYunikoDb(): SupabaseClient {
+export function requireYunikoDb() {
   return requireSupabase().schema("yunikov_v1");
 }
