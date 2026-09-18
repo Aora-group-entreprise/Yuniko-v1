@@ -69,11 +69,23 @@ export function notificationTypeLabel(type: NotificationType): string {
 
 export function subscribeToNotifications(listener: () => void): () => void {
   const client = requireSupabase();
-  const channel = client.channel("user:notifications").on("postgres_changes", { event: "INSERT", schema: "yunikov_v1", table: "notifications" }, async payload => {
-    try {
-      if ((payload.new as NotificationRow).recipient_id === await currentUserId()) listener();
-    } catch { /* query remains source of truth */ }
-  });
-  void channel.subscribe();
-  return () => { void client.removeChannel(channel); };
+  let active = true;
+  let channel: ReturnType<typeof client.channel> | null = null;
+
+  void currentUserId().then((userId) => {
+    if (!active) return;
+    channel = client.channel("user:notifications:" + userId)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "yunikov_v1",
+        table: "notifications",
+        filter: "recipient_id=eq." + userId,
+      }, () => listener());
+    void channel.subscribe();
+  }).catch(() => undefined);
+
+  return () => {
+    active = false;
+    if (channel) void client.removeChannel(channel);
+  };
 }
