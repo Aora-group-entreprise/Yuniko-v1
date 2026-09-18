@@ -42,7 +42,7 @@ export function FeedPage() {
     {view === "stories" && <StoriesPage initialStoryId={selectedStoryId} onBack={() => setView("feed")} />}
     {view === "security" && <SecurityPage onBack={() => setView("settings")} />}
     {view === "settings" && <SettingsPage onBack={() => setView("feed")} onOpenSecurity={() => setView("security")} />}
-    {view === "feed" && <FollowingFeed onOpenProfile={openOwnProfile} onOpenCreate={() => setView("create")} onOpenNotifications={() => setView("notifications")} onOpenSearch={() => setView("search")} onOpenMessages={() => setView("messages")} onOpenSecurity={() => setView("security")} onOpenSettings={() => setView("settings")} onOpenStory={storyId => { setSelectedStoryId(storyId); setView("stories"); }} onCreateStory={() => { setSelectedStoryId(null); setView("stories"); }} />}
+    {view === "feed" && <FollowingFeed onOpenProfile={openOwnProfile} onOpenCreate={() => setView("create")} onOpenNotifications={() => setView("notifications")} onOpenSearch={() => setView("search")} onOpenMessages={() => setView("messages")} onOpenSecurity={() => setView("security")} onOpenSettings={() => setView("settings")} onOpenStory={(storyId: string) => { setSelectedStoryId(storyId); setView("stories"); }} onCreateStory={() => { setSelectedStoryId(null); setView("stories"); }} />}
   </Suspense>;
 }
 
