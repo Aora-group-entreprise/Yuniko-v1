@@ -1,131 +1,169 @@
 import { z } from "zod";
-import { requireSupabase } from "../../lib/supabase";
-import { publicProfileSchema, type PublicProfile } from "./profile.schema";
-import { listPostsByAuthor } from "../posts/post-read.service";
-import { getFollowProfile } from "../follow/follow.service";
+import { requireYunikoDb, requireSupabase } from "../../lib/supabase";
+import { myProfileSchema, profileUpdateSchema, publicProfileSchema, type MyProfile, type ProfileUpdateInput, type PublicProfile } from "./profile.schema";
 
-const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
+export { profileUpdateSchema };
+export type { ProfileUpdateInput };
 
-type DemoProfile = {
-  id: string;
-  username: string;
-  displayName: string;
-  bio: string;
-  avatarUrl: string;
-  country: string;
-  followerCount: number;
-  followingCount: number;
-  postCount: number;
-  isPrivate: boolean;
-};
+export async function getPublicProfile(username: string): Promise<PublicProfile> {
+  const db = requireYunikoDb();
 
-const demoProfiles: DemoProfile[] = [
-  {
-    id: "1",
-    username: "sofia.park",
-    displayName: "Sofia Park",
-    bio: "Finding color in ordinary days. Photography, city walks, and small moments.",
-    avatarUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`,
-    country: "South Korea",
-    followerCount: 12840,
-    followingCount: 486,
-    postCount: 18,
-    isPrivate: false,
-  },
-  {
-    id: "2",
-    username: "noah.reyes",
-    displayName: "Noah Reyes",
-    bio: "Sound, late nights, and the energy between people.",
-    avatarUrl: `${REFERENCE_MEDIA}/scene-dj.jpg`,
-    country: "Mexico",
-    followerCount: 8420,
-    followingCount: 302,
-    postCount: 12,
-    isPrivate: false,
-  },
-  {
-    id: "3",
-    username: "lina.rose",
-    displayName: "Lina Rose",
-    bio: "Tiny worlds hiding in plain sight.",
-    avatarUrl: `${REFERENCE_MEDIA}/scene-flower.jpg`,
-    country: "Portugal",
-    followerCount: 3910,
-    followingCount: 214,
-    postCount: 7,
-    isPrivate: true,
-  },
-];
+  const { data: profile, error: profileError } = await db
+    .from("profiles")
+    .select("id,username,display_name,bio,avatar_url,banner_url,is_private,country_code,follower_count,following_count")
+    .eq("username", username.trim())
+    .single();
 
-function getDemoProfile(username: string): DemoProfile {
-  const profile = demoProfiles.find((item) => item.username === username);
-  if (!profile) throw new Error("Profile not found");
-  return profile;
-}
+  if (profileError) throw profileError;
+  if (!profile) throw new Error("Profile not found.");
 
-/**
- * Phase 2 boundary: public profile and profile grid.
- * Profile posts are read through the shared post service so the grid and feed
- * use the same post records. Persistence connects here once Phase 1 exists.
- */
-export async function getPublicProfile(username = demoProfiles[0].username): Promise<PublicProfile> {
-  const profile = getDemoProfile(username);
-  const posts = await listPostsByAuthor(profile.id);
-  const followProfile = await getFollowProfile(profile.username);
+  const { data: posts, error: postsError } = await db
+    .from("posts")
+    .select("id,caption,created_at")
+    .eq("author_id", profile.id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(60);
+
+  if (postsError) throw postsError;
+
+  const postIds = (posts ?? []).map((post) => post.id);
+  let mediaRows: Array<{ post_id: string; url: string; position: number }> = [];
+
+  if (postIds.length > 0) {
+    const { data: media, error: mediaError } = await db
+      .from("post_media")
+      .select("post_id,url,position")
+      .in("post_id", postIds)
+      .order("position", { ascending: true });
+
+    if (mediaError) throw mediaError;
+    mediaRows = media ?? [];
+  }
+
+  const mediaByPost = new Map<string, string>();
+  for (const media of mediaRows) {
+    if (!mediaByPost.has(media.post_id)) mediaByPost.set(media.post_id, media.url);
+  }
+
+  const { data: { user }, error: userError } = await requireSupabase().auth.getUser();
+  if (userError) throw userError;
+
+  let followStatus: PublicProfile["followStatus"] = "none";
+  if (user) {
+    if (user.id === profile.id) {
+      followStatus = "self";
+    } else {
+      const { data: follow, error: followError } = await db
+        .from("follows")
+        .select("status")
+        .eq("follower_id", user.id)
+        .eq("following_id", profile.id)
+        .maybeSingle();
+
+      if (followError) throw followError;
+      followStatus = follow?.status === "accepted"
+        ? "following"
+        : follow?.status === "pending"
+          ? "requested"
+          : "none";
+    }
+  }
 
   return publicProfileSchema.parse({
-    ...profile,
-    followStatus: followProfile.followStatus,
-    posts: posts.map(({ id, mediaUrl, caption, createdAt }) => ({ id, mediaUrl, caption, createdAt })),
+    id: profile.id,
+    username: profile.username,
+    displayName: profile.display_name,
+    bio: profile.bio ?? "",
+    avatarUrl: profile.avatar_url,
+    bannerUrl: profile.banner_url,
+    country: profile.country_code ?? undefined,
+    followerCount: profile.follower_count,
+    followingCount: profile.following_count,
+    postCount: posts?.length ?? 0,
+    isPrivate: profile.is_private,
+    followStatus,
+    posts: (posts ?? [])
+      .map((post) => ({
+        id: post.id,
+        mediaUrl: mediaByPost.get(post.id),
+        caption: post.caption ?? "",
+        createdAt: post.created_at,
+      }))
+      .filter((post): post is { id: string; mediaUrl: string; caption: string; createdAt: string } => Boolean(post.mediaUrl)),
   });
 }
 
-
-export const profileUpdateSchema = z.object({
-  username: z.string().trim().min(3).max(30).regex(/^[a-zA-Z0-9_.]+$/),
-  displayName: z.string().trim().min(1).max(80),
-  bio: z.string().max(500),
-  country: z.string().trim().max(80).optional(),
-  website: z.string().trim().url().or(z.literal("")).optional(),
-  isPrivate: z.boolean().optional(),
-});
-export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
-
-export async function getMyProfile() {
+export async function getMyProfile(): Promise<MyProfile | null> {
   const client = requireSupabase();
   const { data: { user }, error: userError } = await client.auth.getUser();
   if (userError) throw userError;
   if (!user) return null;
-  const { data, error } = await client.from("profiles").select("*").eq("id", user.id).single();
+
+  const { data, error } = await requireYunikoDb()
+    .from("profiles")
+    .select("id,username,display_name,bio,avatar_url,banner_url,is_private,country_code,website,follower_count,following_count")
+    .eq("id", user.id)
+    .single();
+
   if (error) throw error;
-  return data;
+  return myProfileSchema.parse(data);
 }
 
-export async function updateMyProfile(input: ProfileUpdateInput) {
+export async function updateMyProfile(input: ProfileUpdateInput): Promise<MyProfile> {
   const parsed = profileUpdateSchema.parse(input);
   const client = requireSupabase();
   const { data: { user }, error: userError } = await client.auth.getUser();
   if (userError) throw userError;
   if (!user) throw new Error("Not authenticated.");
-  const { data, error } = await client.from("profiles")
-    .update({ ...parsed, username: parsed.username.toLowerCase(), updated_at: new Date().toISOString() })
-    .eq("id", user.id).select().single();
+
+  const { data, error } = await requireYunikoDb()
+    .from("profiles")
+    .update({
+      username: parsed.username.toLowerCase(),
+      display_name: parsed.displayName,
+      bio: parsed.bio,
+      country_code: parsed.country?.trim() || null,
+      website: parsed.website?.trim() || null,
+    })
+    .eq("id", user.id)
+    .select("id,username,display_name,bio,avatar_url,banner_url,is_private,country_code,website,follower_count,following_count")
+    .single();
+
   if (error) throw error;
-  return data;
+  return myProfileSchema.parse(data);
 }
 
-export async function uploadMyAvatar(file: File) {
+export async function uploadMyAvatar(file: File): Promise<MyProfile> {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new Error("Avatar must be a JPEG, PNG, or WebP image.");
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("Avatar must be smaller than 5 MB.");
+  }
+
   const client = requireSupabase();
   const { data: { user }, error: userError } = await client.auth.getUser();
   if (userError) throw userError;
   if (!user) throw new Error("Not authenticated.");
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${user.id}/avatar.${ext}`;
-  const { error: uploadError } = await client.storage.from("avatars").upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+
+  const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const path = `${user.id}/avatar.${extension}`;
+
+  const { error: uploadError } = await client.storage
+    .from("avatars")
+    .upload(path, file, { upsert: true, contentType: file.type });
+
   if (uploadError) throw uploadError;
-  const { data } = client.storage.from("avatars").getPublicUrl(path);
-  const { data: profile, error } = await client.from("profiles").update({ avatar_url: data.publicUrl, updated_at: new Date().toISOString() }).eq("id", user.id).select().single();
+
+  const { data: publicUrl } = client.storage.from("avatars").getPublicUrl(path);
+  const { data, error } = await requireYunikoDb()
+    .from("profiles")
+    .update({ avatar_url: publicUrl.publicUrl })
+    .eq("id", user.id)
+    .select("id,username,display_name,bio,avatar_url,banner_url,is_private,country_code,website,follower_count,following_count")
+    .single();
+
   if (error) throw error;
-  return profile;
+  return myProfileSchema.parse(data);
 }
