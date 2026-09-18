@@ -246,3 +246,20 @@ for each row execute function yunikov_v1.sync_post_share_count();
 
 create index if not exists saves_post_id_idx on yunikov_v1.saves(post_id);
 create index if not exists shares_post_id_idx on yunikov_v1.shares(post_id);
+
+-- Feed pagination, seen-post retention and ranking access indexes.
+create index if not exists posts_feed_created_id_idx
+on yunikov_v1.posts(created_at desc, id desc)
+where deleted_at is null and status = 'ready';
+
+create index if not exists seen_posts_user_seen_at_idx
+on yunikov_v1.seen_posts(user_id, seen_at desc);
+
+create index if not exists follows_follower_status_idx
+on yunikov_v1.follows(follower_id, status, following_id);
+
+create index if not exists user_affinity_user_target_idx
+on yunikov_v1.user_affinity(user_id, target_user_id);
+
+create index if not exists user_topic_affinity_user_topic_idx
+on yunikov_v1.user_topic_affinity(user_id, topic_id);
