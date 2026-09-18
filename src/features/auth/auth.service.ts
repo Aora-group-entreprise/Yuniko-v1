@@ -56,9 +56,13 @@ export async function resetPassword(input: ResetPasswordInput) {
   let email = identifier;
 
   if (!identifier.includes("@")) {
-    const { data, error } = await client.rpc("request_password_reset_by_username", { requested_username: identifier.toLowerCase() });
-    if (error) throw error;
-    email = data ?? "";
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/request-password-reset-by-username`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string },
+      body: JSON.stringify({ username: identifier }),
+    });
+    if (!response.ok) throw new Error("Unable to start password reset.");
+    return;
   }
 
   if (!email) return;
