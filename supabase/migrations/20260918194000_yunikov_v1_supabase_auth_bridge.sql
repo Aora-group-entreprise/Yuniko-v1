@@ -132,3 +132,8 @@ using (exists (
   where m.conversation_id = conversations.id
     and m.user_id = yunikov_v1.app_current_user_id()
 ));
+
+
+-- Keep the canonical schema reachable through Supabase PostgREST.
+alter role authenticator set pgrst.db_schemas = 'public, yunikov_v1';
+notify pgrst;
