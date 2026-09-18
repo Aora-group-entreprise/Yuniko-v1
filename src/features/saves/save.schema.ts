@@ -1,14 +1,14 @@
 import { z } from "zod";
 
 export const savedPostSchema = z.object({
-  postId: z.string(),
-  collectionIds: z.array(z.string()),
+  postId: z.string().uuid(),
+  collectionIds: z.array(z.string().uuid()),
   savedAt: z.string(),
 });
 
 export const collectionSchema = z.object({
-  id: z.string(),
-  name: z.string().min(1).max(80),
+  id: z.string().uuid(),
+  name: z.string().trim().min(1).max(80),
   createdAt: z.string(),
 });
 
