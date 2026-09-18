@@ -97,7 +97,7 @@ export function PostDetailPage({ postId, onBack }: { postId: string; onBack: () 
       <section className="post-detail-scroll">
         {isLoading && <div className="profile-state">Loading post…</div>}
         {isError && <div className="profile-state">Unable to load this post.</div>}
-        {data && <div className="post-detail-card"><PostCard post={data} /></div>}
+        {data && <div className="post-detail-card"><PostCard post={{ ...data, author: { ...data.author, avatarUrl: data.author.avatarUrl ?? "" } }} /></div>}
       </section>
       {editing && (
         <div className="post-edit-backdrop" role="presentation" onClick={() => !saving && setEditing(false)}>
