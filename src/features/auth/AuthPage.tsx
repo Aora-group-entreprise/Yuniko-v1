@@ -73,8 +73,8 @@ export function AuthPage({ onAuthenticated }: { onAuthenticated: () => void }) {
           {mode === "signin" && <motion.form key="signin" className="auth-form" onSubmit={submitSignIn} initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 24 }}>
             <ModeTabs mode={mode} onChange={(next) => { setMode(next); resetError(); }} />
             <div className="auth-fields">
-              <Field icon={<User size={18} />} value={username} onChange={setUsername} placeholder="Username or email" />
-              <Field icon={<Lock size={18} />} value={password} onChange={setPassword} placeholder="Password" type={showPw ? "text" : "password"} suffix={<button type="button" aria-label="Toggle password" onClick={() => setShowPw((v) => !v)}>{showPw ? <EyeOff size={16} /> : <Eye size={16} />}</button>} />
+              <Field icon={<User size={18} />} value={username} onChange={setUsername} placeholder="Username or email" autoComplete="username" />
+              <Field icon={<Lock size={18} />} value={password} onChange={setPassword} placeholder="Password" type={showPw ? "text" : "password"} autoComplete="current-password" suffix={<button type="button" aria-label="Toggle password" onClick={() => setShowPw((v) => !v)}>{showPw ? <EyeOff size={16} /> : <Eye size={16} />}</button>} />
             </div>
             <button type="button" className="auth-link-right" onClick={() => { setMode("forgot"); resetError(); }}>Forgot Password?</button>
             {error && <p className="auth-error">{error}</p>}
@@ -107,6 +107,6 @@ function ModeTabs({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => vo
   return <div className="auth-tabs"><button type="button" className={mode === "signin" ? "active" : ""} onClick={() => onChange("signin")}>Sign In</button><button type="button" onClick={() => onChange("signup")}>Sign Up</button></div>;
 }
 
-function Field({ icon, value, onChange, placeholder, type = "text", suffix }: { icon: ReactNode; value: string; onChange: (value: string) => void; placeholder: string; type?: string; suffix?: ReactNode }) {
-  return <div className="auth-field">{icon}<input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} autoComplete="off" />{suffix}</div>;
+function Field({ icon, value, onChange, placeholder, type = "text", suffix }: { icon: ReactNode; value: string; onChange: (value: string) => void; placeholder: string; type?: string; suffix?: ReactNode; autoComplete?: string }) {
+  return <div className="auth-field">{icon}<input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} autoComplete={autoComplete} />{suffix}</div>;
 }
