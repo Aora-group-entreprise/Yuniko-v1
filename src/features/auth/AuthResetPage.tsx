@@ -1,0 +1,9 @@
+import { FormEvent, useState } from "react";
+import { ArrowRight, Lock } from "lucide-react";
+import { updatePassword } from "./auth.service";
+
+export function AuthResetPage({ onDone }: { onDone: () => void }) {
+  const [password,setPassword]=useState(""); const [confirm,setConfirm]=useState(""); const [error,setError]=useState(""); const [busy,setBusy]=useState(false);
+  async function submit(event: FormEvent){event.preventDefault();setError("");if(password.length<6||password!==confirm){setError("Use at least 6 characters and matching passwords.");return;}setBusy(true);try{await updatePassword(password);onDone();}catch(err){setError(err instanceof Error?err.message:"Unable to update password.");}finally{setBusy(false);}}
+  return <main className="auth-shell"><div className="auth-glow"/><section className="auth-brand"><div className="auth-logo" style={{background:"linear-gradient(135deg,#ff006e,#8b00ff)"}}><span>✦</span></div><h1>Yuniko</h1></section><div className="auth-content"><form className="auth-form" onSubmit={submit}><h2>New password</h2><p className="auth-subtitle">Choose a new password for your Yuniko account.</p><div className="auth-fields"><label className="auth-field"><Lock size={18}/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="New password"/></label><label className="auth-field"><Lock size={18}/><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} placeholder="Confirm password"/></label></div>{error&&<p className="auth-error">{error}</p>}<button className="auth-primary" disabled={busy}>{busy?"Updating...":"Update Password"}<ArrowRight size={16}/></button></form></div></main>;
+}
