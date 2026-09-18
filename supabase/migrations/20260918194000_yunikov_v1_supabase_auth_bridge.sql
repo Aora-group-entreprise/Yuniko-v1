@@ -160,3 +160,31 @@ with check (bucket_id='post-media' and (storage.foldername(name))[1]=(select aut
 drop policy if exists "post_media_delete_own" on storage.objects;
 create policy "post_media_delete_own" on storage.objects for delete to authenticated
 using (bucket_id='post-media' and (storage.foldername(name))[1]=(select auth.uid())::text);
+
+
+-- Canonical post-like interaction access and event telemetry.
+alter table yunikov_v1.likes enable row level security;
+drop policy if exists likes_select_self on yunikov_v1.likes;
+create policy likes_select_self on yunikov_v1.likes
+for select to authenticated
+using ((select auth.uid()) = user_id);
+drop policy if exists likes_insert_self on yunikov_v1.likes;
+create policy likes_insert_self on yunikov_v1.likes
+for insert to authenticated
+with check ((select auth.uid()) = user_id);
+drop policy if exists likes_delete_self on yunikov_v1.likes;
+create policy likes_delete_self on yunikov_v1.likes
+for delete to authenticated
+using ((select auth.uid()) = user_id);
+
+alter table yunikov_v1.events enable row level security;
+drop policy if exists events_insert_self on yunikov_v1.events;
+create policy events_insert_self on yunikov_v1.events
+for insert to authenticated
+with check ((select auth.uid()) = user_id);
+drop policy if exists events_select_self on yunikov_v1.events;
+create policy events_select_self on yunikov_v1.events
+for select to authenticated
+using ((select auth.uid()) = user_id);
+
+create index if not exists likes_post_id_idx on yunikov_v1.likes(post_id);
