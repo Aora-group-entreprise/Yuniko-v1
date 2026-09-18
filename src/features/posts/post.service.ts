@@ -6,6 +6,7 @@ import {
   type CreatePostTransactionResult,
 } from "./post-create.contract";
 import { publishPostSchema, type PostDraft, type PostMedia, type PostVisibility } from "./post.schema";
+import { readStoredJson, writeStoredJson } from "../../lib/storage";
 
 export interface UploadRequest {
   mediaId: string;
@@ -89,18 +90,12 @@ export async function getLocalMediaUrl(mediaId: string): Promise<string | null> 
 }
 
 function readLocalPosts(): LocalPublishedPost[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(LOCAL_POSTS_KEY);
-    return raw ? JSON.parse(raw) as LocalPublishedPost[] : [];
-  } catch {
-    return [];
-  }
+  return readStoredJson<LocalPublishedPost[]>(LOCAL_POSTS_KEY, []);
 }
 
 function writeLocalPosts(posts: LocalPublishedPost[]): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(LOCAL_POSTS_KEY, JSON.stringify(posts));
+  writeStoredJson(LOCAL_POSTS_KEY, posts);
 }
 
 /**
