@@ -113,7 +113,8 @@ export function CreatePostPage({ onBack }: { onBack: () => void }) {
       setFiles([]);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["feed", "following", "chronological"] }),
-        queryClient.invalidateQueries({ queryKey: ["profile", "sofia.park"] }),
+        queryClient.invalidateQueries({ queryKey: ["profile"] }),
+        queryClient.invalidateQueries({ queryKey: ["my-profile"] }),
       ]);
       onBack();
     } catch (cause) {
