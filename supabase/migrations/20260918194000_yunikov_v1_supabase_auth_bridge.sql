@@ -301,3 +301,50 @@ on yunikov_v1.post_distribution(status, stage, last_eval_at);
 
 create index if not exists post_distribution_countries_gin_idx
 on yunikov_v1.post_distribution using gin(countries);
+
+
+-- Atomic post publication: all relational writes commit or roll back together.
+create or replace function yunikov_v1.create_post_atomic(
+  p_id uuid,
+  p_caption text,
+  p_visibility yunikov_v1.post_visibility,
+  p_created_at timestamptz,
+  p_media jsonb
+)
+returns table(post_id uuid, status yunikov_v1.post_status)
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_user_id uuid := yunikov_v1.app_current_user_id();
+begin
+  if v_user_id is null then raise exception 'Authentication required'; end if;
+  if p_id is null then raise exception 'Post id is required'; end if;
+  if jsonb_typeof(coalesce(p_media, '[]'::jsonb)) <> 'array' then raise exception 'Media must be an array'; end if;
+
+  insert into yunikov_v1.posts(id, author_id, caption, visibility, status, created_at)
+  values(p_id, v_user_id, nullif(trim(p_caption), ''), p_visibility, 'ready', p_created_at);
+
+  insert into yunikov_v1.post_media(id, post_id, url, width, height, blurhash, position, status, object_key)
+  select
+    (item->>'id')::uuid, p_id, item->>'url',
+    nullif(item->>'width', '')::integer,
+    nullif(item->>'height', '')::integer,
+    nullif(item->>'blurhash', ''),
+    coalesce((item->>'position')::integer, 0), 'ready', item->>'object_key'
+  from jsonb_array_elements(coalesce(p_media, '[]'::jsonb)) item;
+
+  insert into yunikov_v1.post_stats(post_id) values(p_id) on conflict(post_id) do nothing;
+  insert into yunikov_v1.post_distribution(post_id, stage, countries)
+  values(p_id, 1, '[]'::jsonb) on conflict(post_id) do nothing;
+
+  insert into yunikov_v1.events(user_id, post_id, type, weight)
+  values(v_user_id, p_id, 'post.created'::yunikov_v1.event_type, 1);
+
+  return query select p_id, 'ready'::yunikov_v1.post_status;
+end;
+$$;
+
+revoke all on function yunikov_v1.create_post_atomic(uuid,text,yunikov_v1.post_visibility,timestamptz,jsonb) from public;
+grant execute on function yunikov_v1.create_post_atomic(uuid,text,yunikov_v1.post_visibility,timestamptz,jsonb) to authenticated;
