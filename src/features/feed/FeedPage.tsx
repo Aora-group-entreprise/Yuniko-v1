@@ -95,10 +95,13 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
     const root = document.querySelector<HTMLElement>(".feed-viewport");
     if (!root) return;
     const observer = new IntersectionObserver((entries) => {
-      const newlyVisible = entries
-        .filter((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.6)
-        .map((entry) => (entry.target as HTMLElement).dataset.postId)
-        .filter((id): id is string => Boolean(id) && !seenBatchRef.current.has(id));
+      const newlyVisible: string[] = [];
+      for (const entry of entries) {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.6) continue;
+        const id = (entry.target as HTMLElement).dataset.postId;
+        if (!id || seenBatchRef.current.has(id)) continue;
+        newlyVisible.push(id);
+      }
       if (!newlyVisible.length) return;
       for (const id of newlyVisible) seenBatchRef.current.add(id);
       void markPostsSeen(newlyVisible).catch(() => undefined);
