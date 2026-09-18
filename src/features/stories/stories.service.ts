@@ -8,9 +8,8 @@ type StoryRow = {
   created_at: string;
   expires_at: string;
   visibility: string;
+  caption: string | null;
 };
-
-const storyCaption = new Map<string, string>();
 
 async function currentUserId(): Promise<string> {
   const { data: { user }, error } = await requireSupabase().auth.getUser();
@@ -43,7 +42,7 @@ async function mapStories(rows: StoryRow[]): Promise<Story[]> {
       authorUsername: author.username,
       authorAvatarUrl: author.avatar_url ?? "https://placehold.co/96x96",
       mediaUrl: row.media_url,
-      caption: storyCaption.get(row.id) ?? "",
+      caption: row.caption ?? "",
       createdAt: row.created_at,
       expiresAt: row.expires_at,
       viewed: viewed.has(row.id) || row.author_id === author.id,
@@ -54,7 +53,7 @@ async function mapStories(rows: StoryRow[]): Promise<Story[]> {
 export async function getActiveStories(): Promise<Story[]> {
   const db = requireYunikoDb();
   const { data, error } = await db.from("stories")
-    .select("id,author_id,media_url,created_at,expires_at,visibility")
+    .select("id,author_id,media_url,created_at,expires_at,visibility,caption")
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: true })
     .limit(100);
@@ -73,21 +72,32 @@ export async function markStoryViewed(storyId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function createStory(mediaUrl: string, caption = ""): Promise<Story> {
-  const normalizedUrl = mediaUrl.trim();
-  if (!/^https?:\/\//i.test(normalizedUrl)) throw new Error("A valid media URL is required.");
+export async function createStory(file: File, caption = ""): Promise<Story> {
+  if (!file || file.size <= 0) throw new Error("A story media file is required.");
+  const allowed = new Set(["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"]);
+  if (!allowed.has(file.type)) throw new Error("Unsupported story media type.");
+  if (file.size > 25 * 1024 * 1024) throw new Error("Story media is too large.");
   const authorId = await currentUserId();
+  const client = requireSupabase();
+  const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || (file.type.startsWith("video/") ? "mp4" : "jpg");
+  const objectKey = `${authorId}/stories/${crypto.randomUUID()}.${extension}`;
+  const { data: upload, error: uploadError } = await client.storage.from("story-media").createSignedUploadUrl(objectKey);
+  if (uploadError) throw uploadError;
+  const { error: uploadFileError } = await client.storage.from("story-media").uploadToSignedUrl(objectKey, upload.signedUrl.split("/upload/sign/")[1]?.split("?")[0] ?? "", file);
+  if (uploadFileError) throw uploadFileError;
+  const mediaUrl = client.storage.from("story-media").getPublicUrl(objectKey).data.publicUrl;
   const db = requireYunikoDb();
   const now = new Date();
+  const normalizedCaption = caption.trim().slice(0, 180);
   const { data, error } = await db.from("stories").insert({
     author_id: authorId,
-    media_url: normalizedUrl,
+    media_url: mediaUrl,
+    caption: normalizedCaption || null,
     created_at: now.toISOString(),
     expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
     visibility: "public",
-  }).select("id,author_id,media_url,created_at,expires_at,visibility").single();
+  }).select("id,author_id,media_url,created_at,expires_at,visibility,caption").single();
   if (error) throw error;
-  storyCaption.set(data.id, caption.trim().slice(0, 180));
   const stories = await mapStories([data as StoryRow]);
   const created = stories[0];
   if (!created) throw new Error("Unable to load created story.");
