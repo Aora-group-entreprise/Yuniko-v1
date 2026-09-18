@@ -1,24 +1,59 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Bell, ChevronDown, Globe, MessageCircle, Plus, Search, Settings, ShieldCheck, UserPlus, UserRound, WifiOff } from "lucide-react";
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useSessionStore } from "../../stores/sessionStore";
 import { getFeedPage } from "./feed.service";
 import { getAlgorithmicFeed } from "./feed-ranking.service";
 import { PostCard } from "./components/PostCard";
-import { StoryStrip } from "./components/StoryStrip";
 import { getUnreadNotificationCount, subscribeToNotifications } from "../notifications/notifications.service";
-const ProfilePage = lazy(() => import("../profile/ProfilePage").then((module) => ({ default: module.ProfilePage })));
-const CreatePostPage = lazy(() => import("../posts/CreatePostPage").then((module) => ({ default: module.CreatePostPage })));
-const PostDetailPage = lazy(() => import("../posts/PostDetailPage").then((module) => ({ default: module.PostDetailPage })));
-const NotificationsPage = lazy(() => import("../notifications/NotificationsPage").then((module) => ({ default: module.NotificationsPage })));
-const SearchPage = lazy(() => import("../search/SearchPage").then((module) => ({ default: module.SearchPage })));
-const MessagesPage = lazy(() => import("../messages/MessagesPage").then((module) => ({ default: module.MessagesPage })));
-const StoriesPage = lazy(() => import("../stories/StoriesPage").then((module) => ({ default: module.StoriesPage })));
-const SecurityPage = lazy(() => import("../security/SecurityPage").then((module) => ({ default: module.SecurityPage })));
-const SettingsPage = lazy(() => import("../settings/SettingsPage").then((module) => ({ default: module.SettingsPage })));
+
+const ProfilePage = lazy(() => import("../profile/ProfilePage").then(module => ({ default: module.ProfilePage })));
+const CreatePostPage = lazy(() => import("../posts/CreatePostPage").then(module => ({ default: module.CreatePostPage })));
+const PostDetailPage = lazy(() => import("../posts/PostDetailPage").then(module => ({ default: module.PostDetailPage })));
+const NotificationsPage = lazy(() => import("../notifications/NotificationsPage").then(module => ({ default: module.NotificationsPage })));
+const SearchPage = lazy(() => import("../search/SearchPage").then(module => ({ default: module.SearchPage })));
+const MessagesPage = lazy(() => import("../messages/MessagesPage").then(module => ({ default: module.MessagesPage })));
+const StoriesPage = lazy(() => import("../stories/StoriesPage").then(module => ({ default: module.StoriesPage })));
+const SecurityPage = lazy(() => import("../security/SecurityPage").then(module => ({ default: module.SecurityPage })));
+const SettingsPage = lazy(() => import("../settings/SettingsPage").then(module => ({ default: module.SettingsPage })));
+
 type AppView = "feed" | "profile" | "create" | "post" | "notifications" | "search" | "messages" | "stories" | "security" | "settings";
-export function FeedPage() { const [view, setView] = useState<AppView>("feed"); const [selectedPostId, setSelectedPostId] = useState<string | null>(null); const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null); const [selectedProfileId, setSelectedProfileId] = useState("2"); return <Suspense fallback={<PageLoadingFallback />}>{view === "profile" && <ProfilePage profileId={selectedProfileId} onBack={() => setView("feed")} onOpenPost={(postId) => { setSelectedPostId(postId); setView("post"); }} />}{view === "create" && <CreatePostPage onBack={() => setView("feed")} />}{view === "post" && selectedPostId && <PostDetailPage postId={selectedPostId} onBack={() => setView("feed")} />}{view === "notifications" && <NotificationsPage onBack={() => setView("feed")} />}{view === "search" && <SearchPage onBack={() => setView("feed")} onOpenPost={(postId) => { setSelectedPostId(postId); setView("post"); }} onOpenProfile={(profileId) => { setSelectedProfileId(profileId); setView("profile"); }} />}{view === "messages" && <MessagesPage onBack={() => setView("feed")} />}{view === "stories" && <StoriesPage initialStoryId={selectedStoryId} onBack={() => setView("feed")} />}{view === "security" && <SecurityPage onBack={() => setView("settings")} />}{view === "settings" && <SettingsPage onBack={() => setView("feed")} onOpenSecurity={() => setView("security")} />}{view === "feed" && <FollowingFeed onOpenProfile={() => { setSelectedProfileId("2"); setView("profile"); }} onOpenCreate={() => setView("create")} onOpenNotifications={() => setView("notifications")} onOpenSearch={() => setView("search")} onOpenMessages={() => setView("messages")} onOpenSecurity={() => setView("security")} onOpenSettings={() => setView("settings")} onOpenStory={(storyId) => { setSelectedStoryId(storyId); setView("stories"); }} onCreateStory={() => { setSelectedStoryId(null); setView("stories"); }} />}</Suspense>; }
-function PageLoadingFallback() { return <main className="phase10-page-loading" role="status" aria-live="polite">Chargement…</main>; }
-function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpenSearch, onOpenMessages, onOpenSecurity, onOpenSettings, onOpenStory, onCreateStory }: { onOpenProfile: () => void; onOpenCreate: () => void; onOpenNotifications: () => void; onOpenSearch: () => void; onOpenMessages: () => void; onOpenSecurity: () => void; onOpenSettings: () => void; onOpenStory: (storyId: string) => void; onCreateStory: () => void }) {
+
+export function FeedPage() {
+  const user = useSessionStore(state => state.user);
+  const [view, setView] = useState<AppView>("feed");
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(user?.id ?? null);
+
+  const openOwnProfile = () => {
+    if (!user?.id) return;
+    setSelectedProfileId(user.id);
+    setView("profile");
+  };
+
+  return <Suspense fallback={<PageLoadingFallback />}>
+    {view === "profile" && selectedProfileId && <ProfilePage profileId={selectedProfileId} onBack={() => setView("feed")} onOpenPost={postId => { setSelectedPostId(postId); setView("post"); }} />}
+    {view === "create" && <CreatePostPage onBack={() => setView("feed")} />}
+    {view === "post" && selectedPostId && <PostDetailPage postId={selectedPostId} onBack={() => setView("feed")} />}
+    {view === "notifications" && <NotificationsPage onBack={() => setView("feed")} />}
+    {view === "search" && <SearchPage onBack={() => setView("feed")} onOpenPost={postId => { setSelectedPostId(postId); setView("post"); }} onOpenProfile={profileId => { setSelectedProfileId(profileId); setView("profile"); }} />}
+    {view === "messages" && <MessagesPage onBack={() => setView("feed")} />}
+    {view === "stories" && <StoriesPage initialStoryId={selectedStoryId} onBack={() => setView("feed")} />}
+    {view === "security" && <SecurityPage onBack={() => setView("settings")} />}
+    {view === "settings" && <SettingsPage onBack={() => setView("feed")} onOpenSecurity={() => setView("security")} />}
+    {view === "feed" && <FollowingFeed onOpenProfile={openOwnProfile} onOpenCreate={() => setView("create")} onOpenNotifications={() => setView("notifications")} onOpenSearch={() => setView("search")} onOpenMessages={() => setView("messages")} onOpenSecurity={() => setView("security")} onOpenSettings={() => setView("settings")} onOpenStory={storyId => { setSelectedStoryId(storyId); setView("stories"); }} onCreateStory={() => { setSelectedStoryId(null); setView("stories"); }} />}
+  </Suspense>;
+}
+
+function PageLoadingFallback() {
+  return <main className="phase10-page-loading" role="status" aria-live="polite">Chargement…</main>;
+}
+
+function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpenSearch, onOpenMessages, onOpenSecurity, onOpenSettings, onOpenStory, onCreateStory }: {
+  onOpenProfile: () => void; onOpenCreate: () => void; onOpenNotifications: () => void; onOpenSearch: () => void;
+  onOpenMessages: () => void; onOpenSecurity: () => void; onOpenSettings: () => void; onOpenStory: (storyId: string) => void; onCreateStory: () => void;
+}) {
   const [worldMenu, setWorldMenu] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -29,7 +64,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
     queryKey: ["feed", "world", "ranked"],
     initialPageParam: null as import("./feed.service").FeedCursor,
     queryFn: async ({ pageParam }) => getAlgorithmicFeed(await getFeedPage(pageParam)),
-    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
+    getNextPageParam: lastPage => lastPage.hasMore ? lastPage.nextCursor : undefined,
     staleTime: 30_000,
   });
 
@@ -43,11 +78,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
     const unsubscribeNotifications = subscribeToNotifications(refreshNotifications);
-    return () => {
-      window.removeEventListener("online", on);
-      window.removeEventListener("offline", off);
-      unsubscribeNotifications();
-    };
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); unsubscribeNotifications(); };
   }, []);
 
   useEffect(() => {
@@ -96,4 +127,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
     </nav>
   </main>;
 }
-function FeedSkeleton() { return <div className="feed-slide"><div className="post-card skeleton-card"><div className="skeleton" /><div className="skeleton skeleton-copy" /></div></div>; }
+
+function FeedSkeleton() {
+  return <div className="feed-slide"><div className="post-card skeleton-card"><div className="skeleton" /><div className="skeleton skeleton-copy" /></div></div>;
+}
