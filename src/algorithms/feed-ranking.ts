@@ -126,16 +126,16 @@ export function rankFeedPosts(posts: FeedPost[], signals: FeedRankingSignals): F
 
     for (const item of window) {
       authorCounts.set(item.author.id, (authorCounts.get(item.author.id) ?? 0) + 1);
-      for (const tag of item.post.hashtags) {
+      for (const tag of item.hashtags) {
         const key = tag.toLowerCase();
         subjectCounts.set(key, (subjectCounts.get(key) ?? 0) + 1);
       }
     }
 
     const candidateIndex = remainingItems.findIndex(item => {
-      if ((authorCounts.get(item.post.author.id) ?? 0) >= MAX_AUTHOR_IN_WINDOW) return false;
-      if (!item.post.hashtags.length) return true;
-      return item.post.hashtags.some(tag => (subjectCounts.get(tag.toLowerCase()) ?? 0) / Math.max(window.length + 1, 1) < MAX_SUBJECT_SHARE);
+      if ((authorCounts.get(item.author.id) ?? 0) >= MAX_AUTHOR_IN_WINDOW) return false;
+      if (!item.hashtags.length) return true;
+      return item.hashtags.some(tag => (subjectCounts.get(tag.toLowerCase()) ?? 0) / Math.max(window.length + 1, 1) < MAX_SUBJECT_SHARE);
     });
 
     result.push(remainingItems.splice(candidateIndex >= 0 ? candidateIndex : 0, 1)[0].post);
