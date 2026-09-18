@@ -58,3 +58,77 @@ begin
   return new;
 end;
 $$;
+
+
+create or replace function yunikov_v1.create_profile_for_user()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  insert into yunikov_v1.profiles (id, username, display_name)
+  values (new.id, ('user_' || substr(new.id::text, 1, 8))::public.citext, 'New user')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+create or replace function yunikov_v1.sync_follow_counts()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' and new.status = 'accepted' then
+    update yunikov_v1.profiles set following_count = following_count + 1 where id = new.follower_id;
+    update yunikov_v1.profiles set follower_count = follower_count + 1 where id = new.following_id;
+  elsif tg_op = 'DELETE' and old.status = 'accepted' then
+    update yunikov_v1.profiles set following_count = greatest(0, following_count - 1) where id = old.follower_id;
+    update yunikov_v1.profiles set follower_count = greatest(0, follower_count - 1) where id = old.following_id;
+  elsif tg_op = 'UPDATE' then
+    if old.status <> 'accepted' and new.status = 'accepted' then
+      update yunikov_v1.profiles set following_count = following_count + 1 where id = new.follower_id;
+      update yunikov_v1.profiles set follower_count = follower_count + 1 where id = new.following_id;
+    elsif old.status = 'accepted' and new.status <> 'accepted' then
+      update yunikov_v1.profiles set following_count = greatest(0, following_count - 1) where id = new.follower_id;
+      update yunikov_v1.profiles set follower_count = greatest(0, follower_count - 1) where id = new.following_id;
+    end if;
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+create or replace function yunikov_v1.sync_post_comment_count()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' and new.deleted_at is null then
+    update yunikov_v1.posts set comment_count = comment_count + 1 where id = new.post_id;
+  elsif tg_op = 'DELETE' and old.deleted_at is null then
+    update yunikov_v1.posts set comment_count = greatest(0, comment_count - 1) where id = old.post_id;
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+create or replace function yunikov_v1.sync_post_like_count()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' then
+    update yunikov_v1.posts set like_count = like_count + 1 where id = new.post_id;
+  elsif tg_op = 'DELETE' then
+    update yunikov_v1.posts set like_count = greatest(0, like_count - 1) where id = old.post_id;
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+create or replace function yunikov_v1.touch_post_processing_job_updated_at()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop policy if exists "conversations_member_read" on yunikov_v1.conversations;
+create policy "conversations_member_read" on yunikov_v1.conversations
+for select to authenticated
+using (exists (
+  select 1 from yunikov_v1.conversation_members m
+  where m.conversation_id = conversations.id
+    and m.user_id = yunikov_v1.app_current_user_id()
+));
