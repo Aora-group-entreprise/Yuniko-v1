@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Flag, ShieldBan, X } from "lucide-react";
 import { blockUser, isUserBlocked, reportTarget, unblockUser } from "./moderation.service";
 import type { ModerationTargetType, ReportReason } from "./moderation.schema";
@@ -29,25 +29,31 @@ export function ModerationSheet({ targetType, targetId, targetName, onClose, onC
   const [description, setDescription] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const blocked = targetType === "user" && isUserBlocked(targetId);
+  const [blocked, setBlocked] = useState(false);\n\n  useEffect(() => {\n    if (targetType !== "user") return;\n    void isUserBlocked(targetId).then(setBlocked).catch(() => setBlocked(false));\n  }, [targetId, targetType]);
 
-  function handleBlock() {
+  async function handleBlock() {
     setBusy(true);
     try {
-      if (blocked) unblockUser(targetId);
-      else blockUser(targetId);
-      setMessage(blocked ? "User unblocked on this device." : "User blocked on this device.");
+      if (blocked) await unblockUser(targetId);
+      else await blockUser(targetId);
+      setBlocked(!blocked);
+      setMessage(blocked ? "User unblocked." : "User blocked.");
       onChanged?.();
+    } catch {
+      setMessage("Unable to update the block right now.");
     } finally {
       setBusy(false);
     }
   }
 
-  function handleReport() {
+  async function handleReport() {
     setBusy(true);
     try {
-      reportTarget(targetType, targetId, reason, description);
-      setMessage("Report saved locally for the moderation review queue.");
+      const details = description.trim() ? `${reason}: ${description.trim()}` : reason;
+      await reportTarget(targetType, targetId, details);
+      setMessage("Report submitted.");
+    } catch {
+      setMessage("Unable to submit the report right now.");
     } finally {
       setBusy(false);
     }
