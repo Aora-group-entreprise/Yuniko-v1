@@ -125,7 +125,7 @@ export function rankFeedPosts(posts: FeedPost[], signals: FeedRankingSignals): F
     const subjectCounts = new Map<string, number>();
 
     for (const item of window) {
-      authorCounts.set(item.author.id, (authorCounts.get(item.author.id) ?? 0) + 1);
+      authorCounts.set(item.post.author.id, (authorCounts.get(item.author.id) ?? 0) + 1);
       for (const tag of item.post.hashtags) {
         const key = tag.toLowerCase();
         subjectCounts.set(key, (subjectCounts.get(key) ?? 0) + 1);
