@@ -137,3 +137,26 @@ using (exists (
 -- Keep the canonical schema reachable through Supabase PostgREST.
 alter role authenticator set pgrst.db_schemas = 'public, yunikov_v1';
 notify pgrst;
+
+
+-- Canonical post media storage. Public reads are intentional for public feed media.
+insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
+values ('post-media','post-media',true,20971520,array['image/jpeg','image/png','image/webp'])
+on conflict (id) do update set public=true,file_size_limit=20971520,allowed_mime_types=excluded.allowed_mime_types;
+
+drop policy if exists "post_media_public_read" on storage.objects;
+create policy "post_media_public_read" on storage.objects for select to public
+using (bucket_id='post-media');
+
+drop policy if exists "post_media_insert_own" on storage.objects;
+create policy "post_media_insert_own" on storage.objects for insert to authenticated
+with check (bucket_id='post-media' and (storage.foldername(name))[1]=(select auth.uid())::text);
+
+drop policy if exists "post_media_update_own" on storage.objects;
+create policy "post_media_update_own" on storage.objects for update to authenticated
+using (bucket_id='post-media' and (storage.foldername(name))[1]=(select auth.uid())::text)
+with check (bucket_id='post-media' and (storage.foldername(name))[1]=(select auth.uid())::text);
+
+drop policy if exists "post_media_delete_own" on storage.objects;
+create policy "post_media_delete_own" on storage.objects for delete to authenticated
+using (bucket_id='post-media' and (storage.foldername(name))[1]=(select auth.uid())::text);
