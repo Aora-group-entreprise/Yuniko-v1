@@ -188,3 +188,22 @@ for select to authenticated
 using ((select auth.uid()) = user_id);
 
 create index if not exists likes_post_id_idx on yunikov_v1.likes(post_id);
+
+
+-- Keep reply counters authoritative in PostgreSQL.
+create or replace function yunikov_v1.sync_comment_reply_count()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' and new.deleted_at is null and new.parent_id is not null then
+    update yunikov_v1.comments set reply_count = reply_count + 1 where id = new.parent_id;
+  elsif tg_op = 'DELETE' and old.deleted_at is null and old.parent_id is not null then
+    update yunikov_v1.comments set reply_count = greatest(0, reply_count - 1) where id = old.parent_id;
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists trg_comment_reply_count on yunikov_v1.comments;
+create trigger trg_comment_reply_count
+after insert or delete on yunikov_v1.comments
+for each row execute function yunikov_v1.sync_comment_reply_count();
