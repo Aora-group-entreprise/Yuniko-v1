@@ -91,3 +91,21 @@ img { display:block; max-width:100%; }
 .feed-state { min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:rgba(255,255,255,.5); font-size:13px; }
 
 @media (min-width:900px) { .bottom-nav { left:50%; right:auto; width:min(520px,100%); transform:translateX(-50%); border-radius:18px 18px 0 0; } }
+
+/* Phase 1 Auth: visual system follows Yunikov1.0.0 reference */
+.auth-shell{position:relative;display:flex;flex-direction:column;align-items:center;width:100%;min-height:100dvh;overflow:hidden;background:#0d0b14;color:#fafafa;font-family:"DM Sans",sans-serif}
+.auth-glow{position:absolute;inset:0 0 auto;height:300px;background:linear-gradient(180deg,rgba(255,0,110,.17),rgba(139,0,255,.13) 60%,transparent);pointer-events:none}
+.auth-brand{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:100%;min-height:220px;padding:56px 24px 28px}
+.auth-logo{width:68px;height:68px;border-radius:20px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;box-shadow:0 0 44px rgba(255,0,110,.45)}
+.auth-logo span{font-size:35px}.auth-brand h1{margin:0;font:900 24px/1 "Space Grotesk",sans-serif;background:linear-gradient(90deg,#ff3d9a,#c026d3,#8b00ff);background-clip:text;-webkit-background-clip:text;color:transparent}
+.auth-content{position:relative;width:100%;max-width:512px;padding:0 24px 40px}.auth-form{width:100%}
+.auth-tabs{display:flex;padding:4px;border-radius:16px;margin-bottom:24px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+.auth-tabs button{flex:1;padding:10px;border-radius:12px;color:rgba(255,255,255,.5);font-size:14px;font-weight:600}
+.auth-tabs button.active{color:#fff;background:linear-gradient(135deg,#ff006e,#8b00ff)}
+.auth-fields{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}.auth-field{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4)}
+.auth-field input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:rgba(255,255,255,.9);font-size:14px}.auth-field input::placeholder{color:rgba(255,255,255,.3)}.auth-field button{display:flex;color:rgba(255,255,255,.4)}
+.auth-link-right{display:block;margin:0 0 20px auto;color:#f472b6;font-size:14px}.auth-primary{width:100%;padding:16px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:14px;font-weight:700;background:linear-gradient(135deg,#ff006e,#8b00ff);box-shadow:0 4px 20px rgba(255,0,110,.35)}.auth-primary:disabled{opacity:.55}
+.auth-footer{text-align:center;margin-top:20px;color:rgba(255,255,255,.4);font-size:14px}.auth-footer button,.auth-skip{color:#f472b6;font-weight:600}.auth-error{margin:12px 0;color:#f87171;text-align:center;font-size:12px}
+.auth-step-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}.auth-step-head button,.auth-back{color:rgba(255,255,255,.6);display:flex}.auth-progress{display:flex;gap:6px}.auth-progress span{width:6px;height:6px;border-radius:999px;background:rgba(255,255,255,.18);transition:.2s}.auth-progress span.active{width:20px}.auth-spacer{width:20px}
+.auth-form h2{margin:0 0 4px;font-size:20px}.auth-subtitle{margin:0 0 20px;color:rgba(255,255,255,.4);font-size:14px}.auth-photo-placeholder{width:128px;height:128px;margin:0 auto 20px;border:2px dashed rgba(255,255,255,.2);border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);color:#f472b6}.auth-skip{width:100%;padding:12px;margin-top:4px;font-size:14px;font-weight:400;color:rgba(255,255,255,.35)}
+@media (max-width:480px){.auth-content{padding-left:20px;padding-right:20px}.auth-brand{min-height:205px;padding-top:42px}}
