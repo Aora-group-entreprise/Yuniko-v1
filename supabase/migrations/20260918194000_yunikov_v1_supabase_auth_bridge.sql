@@ -352,3 +352,19 @@ grant execute on function yunikov_v1.create_post_atomic(uuid,text,yunikov_v1.pos
 
 -- Persist story captions instead of keeping them only in client memory.
 alter table yunikov_v1.stories add column if not exists caption text;
+
+
+-- Atomic share recording keeps the share row and event consistent.
+create or replace function yunikov_v1.record_share_atomic(
+  p_post_id uuid, p_user_id uuid, p_channel text
+)
+returns void language plpgsql security invoker set search_path = '' as $$
+begin
+  if p_user_id is null then raise exception 'Authentication required'; end if;
+  if p_channel is null or length(trim(p_channel)) = 0 then raise exception 'Share channel is required'; end if;
+  insert into yunikov_v1.shares(post_id,user_id,channel) values(p_post_id,p_user_id,left(trim(p_channel),40));
+  insert into yunikov_v1.events(user_id,post_id,type,weight) values(p_user_id,p_post_id,'share.created'::yunikov_v1.event_type,5);
+end;
+$$;
+revoke all on function yunikov_v1.record_share_atomic(uuid,uuid,text) from public;
+grant execute on function yunikov_v1.record_share_atomic(uuid,uuid,text) to authenticated;
