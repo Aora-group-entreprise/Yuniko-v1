@@ -263,3 +263,41 @@ on yunikov_v1.user_affinity(user_id, target_user_id);
 
 create index if not exists user_topic_affinity_user_topic_idx
 on yunikov_v1.user_topic_affinity(user_id, topic_id);
+
+-- Recommendation affinity updates and distribution indexes.
+create or replace function yunikov_v1.update_affinity_from_event()
+returns trigger language plpgsql set search_path = '' as $$
+declare target uuid;
+declare delta real;
+begin
+  if new.post_id is null or new.user_id is null then return new; end if;
+  select author_id into target from yunikov_v1.posts where id = new.post_id;
+  if target is null or target = new.user_id then return new; end if;
+  delta := case new.type
+    when 'like.created' then 1.0
+    when 'comment.created' then 3.0
+    when 'save.created' then 4.0
+    when 'share.created' then 5.0
+    when 'post.viewed' then 0.25
+    else 0.0 end;
+  if delta > 0 then
+    insert into yunikov_v1.user_affinity(user_id,target_user_id,score,updated_at)
+    values(new.user_id,target,delta,now())
+    on conflict (user_id,target_user_id)
+    do update set score = least(100, greatest(0, yunikov_v1.user_affinity.score * 0.995 + excluded.score)),
+                  updated_at = now();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_update_affinity_from_event on yunikov_v1.events;
+create trigger trg_update_affinity_from_event
+after insert on yunikov_v1.events
+for each row execute function yunikov_v1.update_affinity_from_event();
+
+create index if not exists post_distribution_status_stage_idx
+on yunikov_v1.post_distribution(status, stage, last_eval_at);
+
+create index if not exists post_distribution_countries_gin_idx
+on yunikov_v1.post_distribution using gin(countries);
