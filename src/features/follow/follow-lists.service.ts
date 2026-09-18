@@ -1,98 +1,104 @@
+import { requireSupabase, requireYunikoDb } from "../../lib/supabase";
 import { z } from "zod";
-import { getBlockedUserIds } from "../moderation/moderation.service";
-
-const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
-const FOLLOW_LIST_STATE_KEY = "yuniko.follow-lists.v1";
 
 export const followListItemSchema = z.object({
-  id: z.string(),
+  id: z.string().uuid(),
   username: z.string().min(1),
   displayName: z.string().min(1),
-  avatarUrl: z.string().url(),
+  avatarUrl: z.string().url().nullable(),
   isPrivate: z.boolean(),
 });
-
 export type FollowListItem = z.infer<typeof followListItemSchema>;
 
-type FollowListState = {
-  removedFollowerIds: string[];
-  handledRequestIds: string[];
-};
+async function listUsersForFollowRows(rows: Array<{ follower_id: string; following_id: string }>, side: "follower" | "following") {
+  const ids = rows.map((row) => side === "follower" ? row.follower_id : row.following_id);
+  if (ids.length === 0) return [];
 
-const followers: FollowListItem[] = [
-  { id: "f1", username: "maya.chen", displayName: "Maya Chen", avatarUrl: `${REFERENCE_MEDIA}/scene-flower.jpg`, isPrivate: false },
-  { id: "f2", username: "leo.martin", displayName: "Leo Martin", avatarUrl: `${REFERENCE_MEDIA}/scene-city.jpg`, isPrivate: false },
-  { id: "f3", username: "nora.lee", displayName: "Nora Lee", avatarUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`, isPrivate: true },
-  { id: "f4", username: "sam.wilson", displayName: "Sam Wilson", avatarUrl: `${REFERENCE_MEDIA}/scene-dj.jpg`, isPrivate: false },
-];
+  const { data, error } = await requireYunikoDb().from("profiles")
+    .select("id,username,display_name,avatar_url,is_private")
+    .in("id", ids);
+  if (error) throw error;
 
-const following: FollowListItem[] = [
-  { id: "g1", username: "ava.james", displayName: "Ava James", avatarUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`, isPrivate: false },
-  { id: "g2", username: "noah.reyes", displayName: "Noah Reyes", avatarUrl: `${REFERENCE_MEDIA}/scene-dj.jpg`, isPrivate: false },
-  { id: "g3", username: "lina.rose", displayName: "Lina Rose", avatarUrl: `${REFERENCE_MEDIA}/scene-flower.jpg`, isPrivate: true },
-];
-
-const requests: FollowListItem[] = [
-  { id: "r1", username: "emma.davis", displayName: "Emma Davis", avatarUrl: `${REFERENCE_MEDIA}/scene-city.jpg`, isPrivate: false },
-  { id: "r2", username: "jules.kim", displayName: "Jules Kim", avatarUrl: `${REFERENCE_MEDIA}/scene-flower.jpg`, isPrivate: false },
-];
-
-function readState(): FollowListState {
-  if (typeof window === "undefined") return { removedFollowerIds: [], handledRequestIds: [] };
-  try {
-    const raw = window.localStorage.getItem(FOLLOW_LIST_STATE_KEY);
-    if (!raw) return { removedFollowerIds: [], handledRequestIds: [] };
-    const parsed = JSON.parse(raw) as Partial<FollowListState>;
-    return {
-      removedFollowerIds: Array.isArray(parsed.removedFollowerIds) ? parsed.removedFollowerIds : [],
-      handledRequestIds: Array.isArray(parsed.handledRequestIds) ? parsed.handledRequestIds : [],
-    };
-  } catch {
-    return { removedFollowerIds: [], handledRequestIds: [] };
-  }
+  const byId = new Map((data ?? []).map((profile) => [profile.id, profile]));
+  return followListItemSchema.array().parse(ids.map((id) => byId.get(id)).filter(Boolean).map((profile) => ({
+    id: profile!.id,
+    username: profile!.username,
+    displayName: profile!.display_name,
+    avatarUrl: profile!.avatar_url,
+    isPrivate: profile!.is_private,
+  })));
 }
 
-function writeState(state: FollowListState): void {
-  if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(FOLLOW_LIST_STATE_KEY, JSON.stringify(state)); } catch { /* best effort */ }
+export async function listFollowers(profileId: string): Promise<FollowListItem[]> {
+  const { data, error } = await requireYunikoDb().from("follows")
+    .select("follower_id,following_id")
+    .eq("following_id", profileId)
+    .eq("status", "accepted");
+  if (error) throw error;
+  return listUsersForFollowRows(data ?? [], "follower");
 }
 
-function visible(items: FollowListItem[]): FollowListItem[] {
-  const blocked = new Set(getBlockedUserIds());
-  return items.filter((item) => !blocked.has(item.id));
+export async function listFollowing(profileId: string): Promise<FollowListItem[]> {
+  const { data, error } = await requireYunikoDb().from("follows")
+    .select("follower_id,following_id")
+    .eq("follower_id", profileId)
+    .eq("status", "accepted");
+  if (error) throw error;
+  return listUsersForFollowRows(data ?? [], "following");
 }
 
-export async function listFollowers(_profileId: string, _cursor?: string): Promise<FollowListItem[]> {
-  const state = readState();
-  return followListItemSchema.array().parse(visible(followers.filter((item) => !state.removedFollowerIds.includes(item.id))));
+export async function listFollowRequests(profileId: string): Promise<FollowListItem[]> {
+  const client = requireSupabase();
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError) throw userError;
+  if (!user || user.id !== profileId) return [];
+
+  const { data, error } = await requireYunikoDb().from("follows")
+    .select("follower_id,following_id")
+    .eq("following_id", user.id)
+    .eq("status", "pending");
+  if (error) throw error;
+  return listUsersForFollowRows(data ?? [], "follower");
 }
 
-export async function listFollowing(_profileId: string, _cursor?: string): Promise<FollowListItem[]> {
-  return followListItemSchema.array().parse(visible(following));
+export async function removeFollower(followerId: string): Promise<void> {
+  const client = requireSupabase();
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("Not authenticated.");
+
+  const { error } = await requireYunikoDb().from("follows")
+    .delete()
+    .eq("follower_id", followerId)
+    .eq("following_id", user.id)
+    .eq("status", "accepted");
+  if (error) throw error;
 }
 
-export async function listFollowRequests(_profileId: string): Promise<FollowListItem[]> {
-  const state = readState();
-  return followListItemSchema.array().parse(visible(requests.filter((item) => !state.handledRequestIds.includes(item.id))));
+export async function acceptFollowRequest(followerId: string): Promise<void> {
+  const client = requireSupabase();
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("Not authenticated.");
+
+  const { error } = await requireYunikoDb().from("follows")
+    .update({ status: "accepted" })
+    .eq("follower_id", followerId)
+    .eq("following_id", user.id)
+    .eq("status", "pending");
+  if (error) throw error;
 }
 
-export async function removeFollower(profileId: string): Promise<void> {
-  const state = readState();
-  if (!followers.some((item) => item.id === profileId)) throw new Error("Follower not found");
-  if (!state.removedFollowerIds.includes(profileId)) state.removedFollowerIds.push(profileId);
-  writeState(state);
-}
+export async function rejectFollowRequest(followerId: string): Promise<void> {
+  const client = requireSupabase();
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("Not authenticated.");
 
-export async function acceptFollowRequest(requestId: string): Promise<void> {
-  const state = readState();
-  if (!requests.some((item) => item.id === requestId)) throw new Error("Follow request not found");
-  if (!state.handledRequestIds.includes(requestId)) state.handledRequestIds.push(requestId);
-  writeState(state);
-}
-
-export async function rejectFollowRequest(requestId: string): Promise<void> {
-  const state = readState();
-  if (!requests.some((item) => item.id === requestId)) throw new Error("Follow request not found");
-  if (!state.handledRequestIds.includes(requestId)) state.handledRequestIds.push(requestId);
-  writeState(state);
+  const { error } = await requireYunikoDb().from("follows")
+    .delete()
+    .eq("follower_id", followerId)
+    .eq("following_id", user.id)
+    .eq("status", "pending");
+  if (error) throw error;
 }
