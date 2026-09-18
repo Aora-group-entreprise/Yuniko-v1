@@ -2,12 +2,12 @@ import { memo, useState } from "react";
 import { Bookmark, Eye, FolderPlus, Heart, MessageCircle, MoreHorizontal, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { FeedPost } from "../feed.schema";
-import { useFeedInteractionStore } from "../feed.store";
 import { CommentsSheet } from "../../comments/components/CommentsSheet";
 import { useCommentsStore } from "../../comments/comments.store";
 import "../../comments/components/comments.css";
 import { CollectionsSheet } from "../../saves/CollectionsSheet";
 import { useSavesStore } from "../../saves/saves.store";
+import { usePostLike } from "../../interactions/usePostLike";
 import "../../saves/saves.css";
 import { ShareSheet } from "../../share/ShareSheet";
 import "../../share/share.css";
@@ -22,10 +22,9 @@ export const PostCard = memo(function PostCard({ post }: PostCardProps) {
   const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [moderationOpen, setModerationOpen] = useState(false);
-  const liked = useFeedInteractionStore((state) => state.liked.includes(post.id));
+  const { liked, toggle: toggleLike, isPending: likePending } = usePostLike(post.id);
   const saved = useSavesStore((state) => state.savedPostIds.includes(post.id));
   const localCommentCount = useCommentsStore((state) => state.comments.filter((comment) => comment.postId === post.id).length);
-  const toggleLike = useFeedInteractionStore((state) => state.toggleLike);
   const toggleSave = useSavesStore((state) => state.toggleSave);
 
   return (
@@ -37,7 +36,7 @@ export const PostCard = memo(function PostCard({ post }: PostCardProps) {
         <button className="post-more" aria-label="Post options" type="button" onClick={() => setModerationOpen(true)}><MoreHorizontal size={18} /></button>
 
         <div className="post-actions">
-          <ActionButton label={String(post.likeCount + (liked ? 1 : 0))} onClick={() => toggleLike(post.id)}>
+          <ActionButton label={String(post.likeCount + (liked ? 1 : 0))} onClick={toggleLike} disabled={likePending}>
             <Heart size={25} className={liked ? "filled-heart" : ""} strokeWidth={1.8} />
           </ActionButton>
           <ActionButton label={String(post.commentCount + localCommentCount)} onClick={() => setCommentsOpen(true)}>
@@ -80,9 +79,9 @@ export const PostCard = memo(function PostCard({ post }: PostCardProps) {
   );
 });
 
-function ActionButton({ label, onClick, children }: { label: string; onClick?: () => void; children: React.ReactNode }) {
+function ActionButton({ label, onClick, disabled = false, children }: { label: string; onClick?: () => void; disabled?: boolean; children: React.ReactNode }) {
   return (
-    <motion.button whileTap={{ scale: 0.88 }} type="button" className="post-action" onClick={onClick}>
+    <motion.button whileTap={{ scale: 0.88 }} type="button" className="post-action" onClick={onClick} disabled={disabled}>
       <span>{children}</span>
       <small>{label}</small>
     </motion.button>
