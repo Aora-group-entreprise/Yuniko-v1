@@ -31,7 +31,7 @@ async function authorMap(ids: string[]): Promise<Map<string, CommentAuthor>> {
 }
 
 function toComment(row: {
-  id: string; post_id: string; author_id: string; parent_id: string | null; body: string; created_at: string;
+  id: string; post_id: string; author_id: string; parent_id: string | null; body: string; created_at: string; deleted_at: string | null;
 }, authors: Map<string, CommentAuthor>): Comment | null {
   const author = authors.get(row.author_id);
   if (!author || row.deleted_at !== null) return null;
