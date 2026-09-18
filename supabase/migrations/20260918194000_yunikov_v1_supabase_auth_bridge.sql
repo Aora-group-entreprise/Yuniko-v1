@@ -348,3 +348,7 @@ $$;
 
 revoke all on function yunikov_v1.create_post_atomic(uuid,text,yunikov_v1.post_visibility,timestamptz,jsonb) from public;
 grant execute on function yunikov_v1.create_post_atomic(uuid,text,yunikov_v1.post_visibility,timestamptz,jsonb) to authenticated;
+
+
+-- Persist story captions instead of keeping them only in client memory.
+alter table yunikov_v1.stories add column if not exists caption text;
