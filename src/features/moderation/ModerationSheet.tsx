@@ -29,7 +29,12 @@ export function ModerationSheet({ targetType, targetId, targetName, onClose, onC
   const [description, setDescription] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [blocked, setBlocked] = useState(false);\n\n  useEffect(() => {\n    if (targetType !== "user") return;\n    void isUserBlocked(targetId).then(setBlocked).catch(() => setBlocked(false));\n  }, [targetId, targetType]);
+  const [blocked, setBlocked] = useState(false);
+
+  useEffect(() => {
+    if (targetType !== "user") return;
+    void isUserBlocked(targetId).then(setBlocked).catch(() => setBlocked(false));
+  }, [targetId, targetType]);
 
   async function handleBlock() {
     setBusy(true);
