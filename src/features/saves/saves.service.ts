@@ -1,31 +1,123 @@
-import { recordInteraction } from "../events/events.service";
-import { savesStateSchema, type Collection, type SavedPost, type SavesState } from "./save.schema";
+import { requireSupabase, requireYunikoDb } from "../../lib/supabase";
+import { z } from "zod";
+import type { Collection, SavedPost, SavesState } from "./save.schema";
 
-const STORAGE_KEY = "yuniko.saves.v1";
-export const DEFAULT_COLLECTION_ID = "default";
-const DEFAULT_COLLECTION: Collection = { id: DEFAULT_COLLECTION_ID, name: "Enregistrements", createdAt: new Date(0).toISOString() };
-function readState(): SavesState {
-  if (typeof window === "undefined") return { savedPosts: [], collections: [DEFAULT_COLLECTION] };
-  try { const raw = window.localStorage.getItem(STORAGE_KEY); if (!raw) return { savedPosts: [], collections: [DEFAULT_COLLECTION] }; const parsed = savesStateSchema.safeParse(JSON.parse(raw)); if (!parsed.success) return { savedPosts: [], collections: [DEFAULT_COLLECTION] }; const collections = parsed.data.collections.some((item) => item.id === DEFAULT_COLLECTION_ID) ? parsed.data.collections : [DEFAULT_COLLECTION, ...parsed.data.collections]; return { ...parsed.data, collections }; } catch { return { savedPosts: [], collections: [DEFAULT_COLLECTION] }; }
+const collectionNameSchema = z.string().trim().min(1).max(80);
+const postIdSchema = z.string().uuid();
+
+type SaveRow = { user_id: string; post_id: string; created_at: string; collection_id: string | null };
+type CollectionRow = { id: string; user_id: string; name: string; created_at: string };
+
+function toCollection(row: CollectionRow): Collection {
+  return { id: row.id, name: row.name, createdAt: row.created_at };
 }
-function writeState(state: SavesState) { if (typeof window === "undefined") return; try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* best effort */ } }
-export function getSavesState() { return readState(); }
-export function isPostSaved(postId: string) { return readState().savedPosts.some((item) => item.postId === postId); }
-export function savePost(postId: string, collectionId = DEFAULT_COLLECTION_ID): SavedPost {
-  const state = readState(); const existing = state.savedPosts.find((item) => item.postId === postId);
-  if (existing) { if (!existing.collectionIds.includes(collectionId)) { existing.collectionIds = [...existing.collectionIds, collectionId]; writeState(state); recordInteraction("collection_add", postId, collectionId); } return existing; }
-  const saved: SavedPost = { postId, collectionIds: [DEFAULT_COLLECTION_ID, collectionId].filter((id, index, ids) => ids.indexOf(id) === index), savedAt: new Date().toISOString() };
-  writeState({ ...state, savedPosts: [...state.savedPosts, saved] }); recordInteraction("save", postId, collectionId); return saved;
+
+async function currentUserId(): Promise<string> {
+  const { data: { user }, error } = await requireSupabase().auth.getUser();
+  if (error || !user) throw new Error("Authentication required.");
+  return user.id;
 }
-export function unsavePost(postId: string) { const state = readState(); writeState({ ...state, savedPosts: state.savedPosts.filter((item) => item.postId !== postId) }); recordInteraction("unsave", postId); }
-export function createCollection(name: string): Collection | null {
-  const trimmed = name.trim(); if (!trimmed) return null; const state = readState(); if (state.collections.some((item) => item.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) return null;
-  const collection: Collection = { id: `local-collection-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: trimmed, createdAt: new Date().toISOString() }; writeState({ ...state, collections: [...state.collections, collection] }); return collection;
+
+export async function listSaves(): Promise<SavesState> {
+  const db = requireYunikoDb();
+  const userId = await currentUserId();
+  const [{ data: saves, error: savesError }, { data: collections, error: collectionsError }] = await Promise.all([
+    db.from("saves").select("user_id,post_id,created_at,collection_id").eq("user_id", userId),
+    db.from("collections").select("id,user_id,name,created_at").eq("user_id", userId).order("created_at", { ascending: true }),
+  ]);
+  if (savesError) throw savesError;
+  if (collectionsError) throw collectionsError;
+
+  const savedPosts = (saves as SaveRow[]).reduce<SavedPost[]>((result, row) => {
+    const existing = result.find((item) => item.postId === row.post_id);
+    if (existing) {
+      if (row.collection_id && !existing.collectionIds.includes(row.collection_id)) existing.collectionIds.push(row.collection_id);
+    } else {
+      result.push({ postId: row.post_id, collectionIds: row.collection_id ? [row.collection_id] : [], savedAt: row.created_at });
+    }
+    return result;
+  }, []);
+
+  return { savedPosts, collections: (collections as CollectionRow[]).map(toCollection) };
 }
-export function togglePostInCollection(postId: string, collectionId: string) {
-  const state = readState(); const saved = state.savedPosts.find((item) => item.postId === postId);
-  if (!saved) { savePost(postId, collectionId); return; }
-  const has = saved.collectionIds.includes(collectionId); saved.collectionIds = has ? saved.collectionIds.filter((id) => id !== collectionId) : [...saved.collectionIds, collectionId];
-  if (saved.collectionIds.length === 0) state.savedPosts = state.savedPosts.filter((item) => item.postId !== postId);
-  writeState(state); recordInteraction(has ? "collection_remove" : "collection_add", postId, collectionId);
+
+export async function isPostSaved(postId: string): Promise<boolean> {
+  postIdSchema.parse(postId);
+  const userId = await currentUserId();
+  const { data, error } = await requireYunikoDb().from("saves").select("post_id").eq("user_id", userId).eq("post_id", postId).maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
+async function getDefaultCollectionId(userId: string): Promise<string> {
+  const db = requireYunikoDb();
+  const { data, error } = await db.from("collections").select("id").eq("user_id", userId).eq("name", "Enregistrements").maybeSingle();
+  if (error) throw error;
+  if (data?.id) return data.id;
+
+  const { data: created, error: createError } = await db.from("collections").insert({ user_id: userId, name: "Enregistrements" }).select("id").single();
+  if (createError) throw createError;
+  return created.id;
+}
+
+export async function savePost(postId: string, collectionId?: string): Promise<void> {
+  postIdSchema.parse(postId);
+  if (collectionId) z.string().uuid().parse(collectionId);
+  const userId = await currentUserId();
+  const targetCollectionId = collectionId ?? await getDefaultCollectionId(userId);
+  const db = requireYunikoDb();
+  const { data: existing, error: existingError } = await db.from("saves").select("user_id,post_id").eq("user_id", userId).eq("post_id", postId).maybeSingle();
+  if (existingError) throw existingError;
+
+  if (!existing) {
+    const { error } = await db.from("saves").insert({ user_id: userId, post_id: postId, collection_id: targetCollectionId });
+    if (error) throw error;
+    await db.from("events").insert({ user_id: userId, post_id: postId, type: "save.created", weight: 1 });
+    return;
+  }
+
+  const { error } = await db.from("saves").update({ collection_id: targetCollectionId }).eq("user_id", userId).eq("post_id", postId);
+  if (error) throw error;
+}
+
+export async function unsavePost(postId: string): Promise<void> {
+  postIdSchema.parse(postId);
+  const userId = await currentUserId();
+  const { error } = await requireYunikoDb().from("saves").delete().eq("user_id", userId).eq("post_id", postId);
+  if (error) throw error;
+}
+
+export async function createCollection(name: string): Promise<Collection> {
+  const userId = await currentUserId();
+  const parsed = collectionNameSchema.parse(name);
+  const { data, error } = await requireYunikoDb().from("collections").insert({ user_id: userId, name: parsed }).select("id,user_id,name,created_at").single();
+  if (error) throw error;
+  return toCollection(data as CollectionRow);
+}
+
+export async function togglePostInCollection(postId: string, collectionId: string): Promise<void> {
+  postIdSchema.parse(postId);
+  z.string().uuid().parse(collectionId);
+  const userId = await currentUserId();
+  const db = requireYunikoDb();
+  const { data: saved, error: readError } = await db.from("saves").select("user_id,post_id,collection_id").eq("user_id", userId).eq("post_id", postId).maybeSingle();
+  if (readError) throw readError;
+
+  if (!saved) {
+    await savePost(postId, collectionId);
+    return;
+  }
+
+  if (saved.collection_id === collectionId) {
+    const { data: other } = await db.from("collections").select("id").eq("user_id", userId).neq("id", collectionId).limit(1).maybeSingle();
+    const { error } = await db.from("saves").update({ collection_id: other?.id ?? null }).eq("user_id", userId).eq("post_id", postId);
+    if (error) throw error;
+  } else {
+    const { error } = await db.from("saves").update({ collection_id: collectionId }).eq("user_id", userId).eq("post_id", postId);
+    if (error) throw error;
+  }
+}
+
+export async function getSavesState(): Promise<SavesState> {
+  return listSaves();
 }
