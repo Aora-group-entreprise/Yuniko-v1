@@ -49,10 +49,16 @@ export async function getConversations(): Promise<ConversationSummary[]> {
 
     let unreadCount = 0;
     if (last?.id && member?.last_read_message_id !== last.id) {
-      const { count, error: unreadError } = await db.from("messages")
+      const marker = member?.last_read_message_id
+        ? await db.from("messages").select("created_at").eq("id", member.last_read_message_id).maybeSingle()
+        : { data: null, error: null };
+      if (marker.error) throw marker.error;
+      let unreadQuery = db.from("messages")
         .select("id", { count: "exact", head: true })
         .eq("conversation_id", conversation.id).is("deleted_at", null)
         .neq("sender_id", userId);
+      if (marker.data?.created_at) unreadQuery = unreadQuery.gt("created_at", marker.data.created_at);
+      const { count, error: unreadError } = await unreadQuery;
       if (unreadError) throw unreadError;
       unreadCount = count ?? 0;
     }
@@ -90,22 +96,23 @@ export async function getConversationMessages(conversationId: string): Promise<M
 }
 
 export async function sendMessage(conversationId: string, body: string): Promise<Message | null> {
-  const userId = await uid();
   const text = body.trim().slice(0, 4000);
   if (!text) return null;
-  const db = requireYunikoDb();
-  const { data: member, error: memberError } = await db.from("conversation_members")
-    .select("conversation_id").eq("conversation_id", conversationId).eq("user_id", userId).maybeSingle();
-  if (memberError) throw memberError;
-  if (!member) throw new Error("Conversation access denied.");
-
-  const { data, error } = await db.from("messages")
-    .insert({ conversation_id: conversationId, sender_id: userId, body: text })
-    .select("id,conversation_id,sender_id,body,media_url,reply_to_id,created_at").single();
+  const { data, error } = await requireSupabase().schema("yunikov_v1").rpc("send_message_atomic", {
+    p_conversation_id: conversationId,
+    p_body: text,
+  });
   if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.id) return null;
   return {
-    id: data.id, conversationId: data.conversation_id, senderId: data.sender_id,
-    body: data.body ?? "", mediaUrl: data.media_url, replyToId: data.reply_to_id, createdAt: data.created_at,
+    id: row.id,
+    conversationId: row.conversation_id,
+    senderId: row.sender_id,
+    body: row.body ?? "",
+    mediaUrl: row.media_url ?? null,
+    replyToId: row.reply_to_id ?? null,
+    createdAt: row.created_at,
   };
 }
 
