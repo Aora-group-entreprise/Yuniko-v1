@@ -2,7 +2,7 @@ import type { ChronologicalFeed } from "./feed.schema";
 import { rankFeedPosts } from "../../algorithms/feed-ranking";
 import { requireSupabase, requireYunikoDb } from "../../lib/supabase";
 
-export async function getAlgorithmicFeed(feed: ChronologicalFeed): Promise<ChronologicalFeed> {
+export async function getAlgorithmicFeed<T extends ChronologicalFeed>(feed: T): Promise<T> {
   const { data: { user } } = await requireSupabase().auth.getUser();
   if (!user || !feed.posts.length) return feed;
   const db = requireYunikoDb();
