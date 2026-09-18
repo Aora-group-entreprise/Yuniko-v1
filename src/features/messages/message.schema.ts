@@ -4,10 +4,8 @@ export const messageSchema = z.object({
   id: z.string(),
   conversationId: z.string(),
   senderId: z.string(),
-  recipientId: z.string(),
   body: z.string().min(1).max(4000),
   createdAt: z.string().datetime(),
-  readAt: z.string().datetime().nullable(),
 });
 
 export const conversationSchema = z.object({
@@ -15,7 +13,7 @@ export const conversationSchema = z.object({
   participantId: z.string(),
   participantName: z.string().min(1),
   participantUsername: z.string().min(1),
-  participantAvatarUrl: z.string().url(),
+  participantAvatarUrl: z.string(),
   updatedAt: z.string().datetime(),
   lastMessagePreview: z.string(),
   unreadCount: z.number().int().nonnegative(),
