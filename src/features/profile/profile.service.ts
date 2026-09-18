@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { requireSupabase } from "../../lib/supabase";
 import { publicProfileSchema, type PublicProfile } from "./profile.schema";
 import { listPostsByAuthor } from "../posts/post-read.service";
 import { getFollowProfile } from "../follow/follow.service";
@@ -77,4 +79,53 @@ export async function getPublicProfile(username = demoProfiles[0].username): Pro
     followStatus: followProfile.followStatus,
     posts: posts.map(({ id, mediaUrl, caption, createdAt }) => ({ id, mediaUrl, caption, createdAt })),
   });
+}
+
+
+export const profileUpdateSchema = z.object({
+  username: z.string().trim().min(3).max(30).regex(/^[a-zA-Z0-9_.]+$/),
+  displayName: z.string().trim().min(1).max(80),
+  bio: z.string().max(500),
+  country: z.string().trim().max(80).optional(),
+  website: z.string().trim().url().or(z.literal("")).optional(),
+  isPrivate: z.boolean().optional(),
+});
+export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
+
+export async function getMyProfile() {
+  const client = requireSupabase();
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError) throw userError;
+  if (!user) return null;
+  const { data, error } = await client.from("profiles").select("*").eq("id", user.id).single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateMyProfile(input: ProfileUpdateInput) {
+  const parsed = profileUpdateSchema.parse(input);
+  const client = requireSupabase();
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("Not authenticated.");
+  const { data, error } = await client.from("profiles")
+    .update({ ...parsed, username: parsed.username.toLowerCase(), updated_at: new Date().toISOString() })
+    .eq("id", user.id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function uploadMyAvatar(file: File) {
+  const client = requireSupabase();
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("Not authenticated.");
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${user.id}/avatar.${ext}`;
+  const { error: uploadError } = await client.storage.from("avatars").upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+  if (uploadError) throw uploadError;
+  const { data } = client.storage.from("avatars").getPublicUrl(path);
+  const { data: profile, error } = await client.from("profiles").update({ avatar_url: data.publicUrl, updated_at: new Date().toISOString() }).eq("id", user.id).select().single();
+  if (error) throw error;
+  return profile;
 }
