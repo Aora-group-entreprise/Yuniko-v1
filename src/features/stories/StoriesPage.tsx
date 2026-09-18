@@ -13,7 +13,15 @@ export function StoriesPage({ initialStoryId, onBack }: StoriesPageProps) {
   const [caption, setCaption] = useState("");
   const refresh = () => { void getActiveStories().then((next) => { setStories(next); setIndex((current) => Math.min(current, Math.max(next.length - 1, 0))); }).catch(() => setStories([])); };
 
-  useEffect(() => {\n    refresh();\n    return subscribeToStories(refresh);\n  }, []);\n  useEffect(() => {\n    if (!initialStoryId || !stories.length) return;\n    const found = stories.findIndex((story) => story.id === initialStoryId);\n    if (found >= 0) setIndex(found);\n  }, [initialStoryId, stories.length]);
+  useEffect(() => {
+    refresh();
+    return subscribeToStories(refresh);
+  }, []);
+  useEffect(() => {
+    if (!initialStoryId || !stories.length) return;
+    const found = stories.findIndex((story) => story.id === initialStoryId);
+    if (found >= 0) setIndex(found);
+  }, [initialStoryId, stories.length]);
   useEffect(() => {
     const story = stories[index];
     if (story && !story.viewed) void markStoryViewed(story.id).catch(() => undefined);
