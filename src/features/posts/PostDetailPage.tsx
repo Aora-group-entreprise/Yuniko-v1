@@ -1,13 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { useState } from "react";\nimport { useSessionStore } from "../../stores/sessionStore";
 import { PostCard } from "../feed/components/PostCard";
 import { deletePost, getPostById, updatePostCaption } from "./post-read.service";
 import "./post-edit.css";
 import "./post-delete.css";
 
 export function PostDetailPage({ postId, onBack }: { postId: string; onBack: () => void }) {
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient();\n  const currentUserId = useSessionStore((state) => state.user?.id ?? null);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["post", postId],
     queryFn: () => getPostById(postId),
@@ -45,7 +45,7 @@ export function PostDetailPage({ postId, onBack }: { postId: string; onBack: () 
       queryClient.setQueryData(["post", postId], updated);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["feed", "following", "chronological"] }),
-        queryClient.invalidateQueries({ queryKey: ["profile", "sofia.park"] }),
+        queryClient.invalidateQueries({ queryKey: ["profile", data?.author.username ?? ""] }),
       ]);
       setEditing(false);
     } catch (error) {
@@ -80,7 +80,7 @@ export function PostDetailPage({ postId, onBack }: { postId: string; onBack: () 
       <header className="profile-header">
         <button type="button" className="profile-header-button" aria-label="Back" onClick={onBack}><ArrowLeft size={21} /></button>
         <span className="profile-header-name">Post</span>
-        {data?.author.id === "1" ? (
+        {data?.author.id === currentUserId ? (
           <div className="post-detail-menu-wrap">
             <button type="button" className="profile-header-button" aria-label="Post options" aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}><MoreHorizontal size={22} /></button>
             {menuOpen && (
