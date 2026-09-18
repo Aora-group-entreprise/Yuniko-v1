@@ -22,7 +22,8 @@ export const PostCard = memo(function PostCard({ post }: PostCardProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const [moderationOpen, setModerationOpen] = useState(false);
   const { liked, toggle: toggleLike, isPending: likePending } = usePostLike(post.id);
-  const { savedPostIds, toggleSave, isPending: savesPending } = useSaves();\n  const { data: comments = [] } = usePostComments(post.id);
+  const { savedPostIds, toggleSave, isPending: savesPending } = useSaves();
+  const { data: comments = [] } = usePostComments(post.id);
   const saved = savedPostIds.includes(post.id);
 
 
