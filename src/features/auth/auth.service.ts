@@ -41,7 +41,7 @@ export async function signUp(input: SignUpInput) {
       data: {
         username: parsed.username.toLowerCase(),
         display_name: parsed.displayName,
-        country: parsed.country ?? "",
+        country: parsed.country ?? "",\n        age: parsed.age,
       },
     },
   });
