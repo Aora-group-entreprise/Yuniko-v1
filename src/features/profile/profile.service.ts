@@ -5,14 +5,18 @@ import { myProfileSchema, profileUpdateSchema, publicProfileSchema, type MyProfi
 export { profileUpdateSchema };
 export type { ProfileUpdateInput };
 
-export async function getPublicProfile(username: string): Promise<PublicProfile> {
+async function getPublicProfileRecord(filter: { username?: string; id?: string }): Promise<PublicProfile> {
   const db = requireYunikoDb();
 
   const { data: profile, error: profileError } = await db
     .from("profiles")
     .select("id,username,display_name,bio,avatar_url,banner_url,is_private,country_code,follower_count,following_count")
-    .eq("username", username.trim())
-    .single();
+    ...(filter.username ? { } : {});
+  const profileQuery = filter.id
+    ? db.from("profiles").select("id,username,display_name,bio,avatar_url,banner_url,is_private,country_code,follower_count,following_count").eq("id", filter.id).single()
+    : db.from("profiles").select("id,username,display_name,bio,avatar_url,banner_url,is_private,country_code,follower_count,following_count").eq("username", filter.username!.trim()).single();
+
+  const { data: profile, error: profileError } = await profileQuery;
 
   if (profileError) throw profileError;
   if (!profile) throw new Error("Profile not found.");
@@ -92,6 +96,15 @@ export async function getPublicProfile(username: string): Promise<PublicProfile>
       }))
       .filter((post): post is { id: string; mediaUrl: string; caption: string; createdAt: string } => Boolean(post.mediaUrl)),
   });
+}
+
+export async function getPublicProfile(username: string): Promise<PublicProfile> {
+  return getPublicProfileRecord({ username });
+}
+
+export async function getPublicProfileById(id: string): Promise<PublicProfile> {
+  if (!z.string().uuid().safeParse(id).success) throw new Error("Invalid profile id.");
+  return getPublicProfileRecord({ id });
 }
 
 export async function getMyProfile(): Promise<MyProfile | null> {
