@@ -1,7 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Bell, ChevronDown, Globe, MessageCircle, Plus, Search, Settings, ShieldCheck, UserPlus, UserRound, WifiOff } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
-import { getFeedPage, markPostsSeen, type FeedCursor } from "./feed.service";
+import { getFeedPage } from "./feed.service";
 import { getAlgorithmicFeed } from "./feed-ranking.service";
 import { PostCard } from "./components/PostCard";
 import { StoryStrip } from "./components/StoryStrip";
