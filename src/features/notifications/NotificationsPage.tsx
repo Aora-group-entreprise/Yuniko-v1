@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getNotifications, markAllNotificationsRead, markNotificationRead, notificationTypeLabel, subscribeToNotifications } from "./notifications.service";
 import { useEffect } from "react";
 
-const icons = { like: Heart, comment: MessageCircle, reply: MessageCircle, save: Bookmark, share: Share2, follow: UserPlus, follow_request: UserPlus };
+const icons = { like: Heart, comment: MessageCircle, reply: MessageCircle, save: Bookmark, share: Share2, follow: UserPlus, follow_request: UserPlus, message: MessageCircle };
 
 export function NotificationsPage({ onBack }: { onBack: () => void }) {
   const queryClient = useQueryClient();
