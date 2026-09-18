@@ -53,7 +53,7 @@ async function loadFeedPosts(rows: Array<Record<string, unknown>>): Promise<Feed
 export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> {
   const userId = await currentUserId();
   const db = requireYunikoDb();
-  const blocked = new Set(getBlockedUserIds());
+  const blocked = new Set(await getBlockedUserIds());
   const seenCutoff = new Date(Date.now() - SEEN_WINDOW_DAYS * 86_400_000).toISOString();
 
   const { data: seenRows, error: seenError } = await db.from("seen_posts")
@@ -76,9 +76,10 @@ export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> 
   if (error) throw error;
 
   const visibleRows = (rows ?? []).filter(row => !blocked.has(row.author_id));
-  const posts = await loadFeedPosts(visibleRows.slice(0, PAGE_SIZE));
-  const last = visibleRows[visibleRows.length - 1];
-  const nextCursor = last ? { createdAt: last.created_at, id: last.id } : null;
+  const pageRows = visibleRows.slice(0, PAGE_SIZE);
+  const posts = await loadFeedPosts(pageRows);
+  const lastCandidate = rows?.at(-1);
+  const nextCursor = lastCandidate ? { createdAt: lastCandidate.created_at, id: lastCandidate.id } : null;
 
   return {
     ...chronologicalFeedSchema.parse({ posts, stories: [] }),
