@@ -41,3 +41,14 @@ export const myProfileSchema = z.object({
 });
 
 export type MyProfile = z.infer<typeof myProfileSchema>;
+
+
+export const profileUpdateSchema = z.object({
+  username: z.string().trim().min(3).max(30).regex(/^[a-zA-Z0-9_.]+$/),
+  displayName: z.string().trim().min(1).max(80),
+  bio: z.string().max(500),
+  country: z.string().trim().max(80).optional(),
+  website: z.string().trim().url().or(z.literal("" )).optional(),
+  isPrivate: z.boolean().optional(),
+});
+export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
