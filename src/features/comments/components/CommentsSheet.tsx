@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Flag, MessageCircle, Send, Trash2, X } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Comment } from "../comment.schema";
-import { usePostComments, useCreateComment, useDeleteComment } from "../useComments";\nimport { useSessionStore } from "../../../stores/sessionStore";
+import { usePostComments, useCreateComment, useDeleteComment } from "../useComments";
+import { useSessionStore } from "../../../stores/sessionStore";
 import { ModerationSheet } from "../../moderation/ModerationSheet";
 import "./comments.css";
 
