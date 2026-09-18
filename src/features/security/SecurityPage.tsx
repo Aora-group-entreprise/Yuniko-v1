@@ -74,7 +74,7 @@ export function SecurityPage({ onBack }: { onBack: () => void }) {
           {security.twoFactorEnabled && <div className="recovery-area">
             <button type="button" className="security-secondary-button" onClick={() => setShowCodes((value) => !value)}>{showCodes ? "Hide recovery codes" : "Show recovery codes"}</button>
             <button type="button" className="security-secondary-button" onClick={regenerateCodes}>Regenerate</button>
-            {showCodes && <div className="recovery-codes" aria-label="Recovery codes">{security.recoveryCodes.map((code) => <code key={code}>{code}</code>)}</div>}
+            {showCodes && <div className="recovery-codes" aria-label="Recovery codes">{security.recoveryCodes.map((code: string) => <code key={code}>{code}</code>)}</div>}
             {showCodes && <button type="button" className="security-copy-button" onClick={() => void copyRecoveryCodes()}><Copy size={15} />{copied ? "Copied" : "Copy codes"}</button>}
           </div>}
         </section>
