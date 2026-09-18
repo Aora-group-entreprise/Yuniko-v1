@@ -1,4 +1,5 @@
-import { requireSupabase, requireYunikoDb } from "../../lib/supabase";\nimport { z } from "zod";
+import { requireSupabase, requireYunikoDb } from "../../lib/supabase";
+import { z } from "zod";
 
 const ENTITY_TYPES = new Set(["post", "comment", "user"]);
 const MAX_REASON_LENGTH = 1000;
@@ -41,7 +42,8 @@ export async function reportTarget(entityType: string, entityId: string, reason:
   if (!userId) throw new Error("Authentication required.");
   const normalizedType = entityType.trim().toLowerCase();
   const normalizedReason = reason.trim().slice(0, MAX_REASON_LENGTH);
-  if (!ENTITY_TYPES.has(normalizedType) || !normalizedReason) throw new Error("Invalid report.");\n  const normalizedEntityId = z.string().uuid().parse(entityId.trim());
+  if (!ENTITY_TYPES.has(normalizedType) || !normalizedReason) throw new Error("Invalid report.");
+  const normalizedEntityId = z.string().uuid().parse(entityId.trim());
   const { data, error } = await requireYunikoDb().from("reports").insert({
     reporter_id: userId, entity_type: normalizedType, entity_id: normalizedEntityId, reason: normalizedReason,
   }).select("id,reporter_id,entity_type,entity_id,reason,status,created_at").single();
