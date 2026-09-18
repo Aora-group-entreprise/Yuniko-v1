@@ -1,7 +1,7 @@
 import { requireSupabase } from "../../lib/supabase";
 import { resetPasswordInputSchema, signInInputSchema, signUpInputSchema, type ResetPasswordInput, type SignInInput, type SignUpInput } from "./auth.schema";
 
-const functionUrl = () => `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sign-in-by-username`;
+const functionUrl = (name: string) => `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${name}`;
 
 export async function signIn(input: SignInInput) {
   const parsed = signInInputSchema.parse(input);
@@ -14,7 +14,7 @@ export async function signIn(input: SignInInput) {
     return data;
   }
 
-  const response = await fetch(functionUrl(), {
+  const response = await fetch(functionUrl("sign-in-by-username"), {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string },
     body: JSON.stringify({ username: identifier, password: parsed.password }),
@@ -70,7 +70,7 @@ export async function resetPassword(input: ResetPasswordInput) {
   if (error) throw error;
 }
 
-export async function signOut() {
+export async function updatePassword(password: string) {\n  if (password.length < 6) throw new Error("Password must be at least 6 characters.");\n  const { error } = await requireSupabase().auth.updateUser({ password });\n  if (error) throw error;\n}\n\nexport async function signOut() {
   const { error } = await requireSupabase().auth.signOut();
   if (error) throw error;
 }
