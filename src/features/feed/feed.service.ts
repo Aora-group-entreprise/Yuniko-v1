@@ -58,6 +58,9 @@ export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> 
   const userId = await currentUserId();
   const db = requireYunikoDb();
   const blocked = new Set(await getBlockedUserIds());
+  const { data: viewerProfile, error: viewerProfileError } = await db.from("profiles").select("country_code").eq("id", userId).maybeSingle();
+  if (viewerProfileError) throw viewerProfileError;
+  const viewerCountry = typeof viewerProfile?.country_code === "string" ? viewerProfile.country_code.toUpperCase() : null;
   const seenCutoff = new Date(Date.now() - SEEN_WINDOW_DAYS * 86_400_000).toISOString();
 
   const { data: seenRows, error: seenError } = await db.from("seen_posts")
@@ -79,7 +82,21 @@ export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> 
   const { data: rows, error } = await query;
   if (error) throw error;
 
-  const visibleRows = (rows ?? []).filter(row => !blocked.has(row.author_id));
+  const candidateIds = (rows ?? []).map(row => row.id);
+  const { data: distributions, error: distributionError } = candidateIds.length
+    ? await db.from("post_distribution").select("post_id,stage,countries,status").in("post_id", candidateIds)
+    : { data: [], error: null };
+  if (distributionError) throw distributionError;
+  const distributionMap = new Map((distributions ?? []).map(row => [row.post_id, row]));
+  const visibleRows = (rows ?? []).filter(row => {
+    if (blocked.has(row.author_id)) return false;
+    const distribution = distributionMap.get(row.id);
+    if (!distribution || distribution.status === "active" && (!Array.isArray(distribution.countries) || distribution.countries.length === 0)) return true;
+    if (distribution.status === "stopped") return false;
+    if (Number(distribution.stage) >= 4) return true;
+    if (!viewerCountry) return true;
+    return !Array.isArray(distribution.countries) || distribution.countries.length === 0 || distribution.countries.includes(viewerCountry);
+  });
   const pageRows = visibleRows.slice(0, PAGE_SIZE);
   const posts = await loadFeedPosts(pageRows);
   const lastCandidate = rows?.at(-1);
