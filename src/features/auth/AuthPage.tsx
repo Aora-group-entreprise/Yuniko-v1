@@ -107,6 +107,6 @@ function ModeTabs({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => vo
   return <div className="auth-tabs"><button type="button" className={mode === "signin" ? "active" : ""} onClick={() => onChange("signin")}>Sign In</button><button type="button" onClick={() => onChange("signup")}>Sign Up</button></div>;
 }
 
-function Field({ icon, value, onChange, placeholder, type = "text", suffix }: { icon: ReactNode; value: string; onChange: (value: string) => void; placeholder: string; type?: string; suffix?: ReactNode; autoComplete?: string }) {
+function Field({ icon, value, onChange, placeholder, type = "text", suffix, autoComplete }: { icon: ReactNode; value: string; onChange: (value: string) => void; placeholder: string; type?: string; suffix?: ReactNode; autoComplete?: string }) {
   return <div className="auth-field">{icon}<input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} autoComplete={autoComplete} />{suffix}</div>;
 }
