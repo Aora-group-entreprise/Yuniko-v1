@@ -1,73 +1,106 @@
+import { requireSupabase, requireYunikoDb } from "../../lib/supabase";
 import { storyLogSchema, type Story } from "./story.schema";
 
-const KEY = "yuniko.stories.v1";
-const ACTOR_KEY = "yuniko.local-actor.v1";
-const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
+type StoryRow = {
+  id: string;
+  author_id: string;
+  media_url: string;
+  created_at: string;
+  expires_at: string;
+  visibility: string;
+};
 
-const demoStories: Story[] = [
-  { id: "s1", authorId: "2", authorName: "Sofia Park", authorUsername: "sofia.park", authorAvatarUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`, mediaUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`, caption: "A new day.", createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(), expiresAt: new Date(Date.now() + 23 * 60 * 60 * 1000).toISOString(), viewed: false },
-  { id: "s2", authorId: "3", authorName: "Noah Reyes", authorUsername: "noah.reyes", authorAvatarUrl: `${REFERENCE_MEDIA}/scene-dj.jpg`, mediaUrl: `${REFERENCE_MEDIA}/scene-dj.jpg`, caption: "Tonight.", createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), expiresAt: new Date(Date.now() + 21 * 60 * 60 * 1000).toISOString(), viewed: false },
-  { id: "s3", authorId: "4", authorName: "Lina Rose", authorUsername: "lina.rose", authorAvatarUrl: `${REFERENCE_MEDIA}/scene-flower.jpg`, mediaUrl: `${REFERENCE_MEDIA}/scene-flower.jpg`, caption: "Small moments.", createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), expiresAt: new Date(Date.now() + 18 * 60 * 60 * 1000).toISOString(), viewed: true },
-];
+const storyCaption = new Map<string, string>();
 
-function actorId(): string {
-  if (typeof window === "undefined") return "1";
-  return window.localStorage.getItem(ACTOR_KEY) || "1";
+async function currentUserId(): Promise<string> {
+  const { data: { user }, error } = await requireSupabase().auth.getUser();
+  if (error || !user) throw new Error("Authentication required.");
+  return user.id;
 }
 
-function read(): Story[] {
-  if (typeof window === "undefined") return demoStories;
-  try {
-    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? "null");
-    const parsed = storyLogSchema.safeParse(raw);
-    if (parsed.success) return parsed.data;
-  } catch {
-    // Best effort only.
-  }
-  window.localStorage.setItem(KEY, JSON.stringify(demoStories));
-  return demoStories;
+async function mapStories(rows: StoryRow[]): Promise<Story[]> {
+  if (!rows.length) return [];
+  const db = requireYunikoDb();
+  const authorIds = [...new Set(rows.map((row) => row.author_id))];
+  const storyIds = rows.map((row) => row.id);
+  const [{ data: profiles, error: profileError }, { data: views, error: viewError }] = await Promise.all([
+    db.from("profiles").select("id,username,display_name,avatar_url").in("id", authorIds),
+    db.from("story_views").select("story_id").eq("viewer_id", await currentUserId()).in("story_id", storyIds),
+  ]);
+  if (profileError) throw profileError;
+  if (viewError) throw viewError;
+
+  const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+  const viewed = new Set((views ?? []).map((view) => view.story_id));
+
+  return storyLogSchema.parse(rows.map((row) => {
+    const author = profileMap.get(row.author_id);
+    if (!author) return null;
+    return {
+      id: row.id,
+      authorId: row.author_id,
+      authorName: author.display_name,
+      authorUsername: author.username,
+      authorAvatarUrl: author.avatar_url ?? "https://placehold.co/96x96",
+      mediaUrl: row.media_url,
+      caption: storyCaption.get(row.id) ?? "",
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+      viewed: viewed.has(row.id) || row.author_id === author.id,
+    };
+  }).filter(Boolean));
 }
 
-function write(stories: Story[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(KEY, JSON.stringify(stories));
-  window.dispatchEvent(new CustomEvent("yuniko:stories-changed"));
+export async function getActiveStories(): Promise<Story[]> {
+  const db = requireYunikoDb();
+  const { data, error } = await db.from("stories")
+    .select("id,author_id,media_url,created_at,expires_at,visibility")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: true })
+    .limit(100);
+  if (error) throw error;
+  return mapStories((data ?? []) as StoryRow[]);
 }
 
-export function getActiveStories(): Story[] {
-  const now = Date.now();
-  return read().filter((story) => new Date(story.expiresAt).getTime() > now).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+export async function markStoryViewed(storyId: string): Promise<void> {
+  const id = storyId.trim();
+  if (!id) return;
+  const viewerId = await currentUserId();
+  const { error } = await requireYunikoDb().from("story_views").upsert(
+    { story_id: id, viewer_id: viewerId, viewed_at: new Date().toISOString() },
+    { onConflict: "story_id,viewer_id" },
+  );
+  if (error) throw error;
 }
 
-export function markStoryViewed(storyId: string): void {
-  const updated = read().map((story) => story.id === storyId ? { ...story, viewed: true } : story);
-  write(updated);
-}
-
-export function createStory(mediaUrl: string, caption = ""): Story | null {
+export async function createStory(mediaUrl: string, caption = ""): Promise<Story> {
   const normalizedUrl = mediaUrl.trim();
-  if (!/^https?:\/\//i.test(normalizedUrl)) return null;
+  if (!/^https?:\/\//i.test(normalizedUrl)) throw new Error("A valid media URL is required.");
+  const authorId = await currentUserId();
+  const db = requireYunikoDb();
   const now = new Date();
-  const story: Story = {
-    id: `story-${Date.now()}`,
-    authorId: actorId(),
-    authorName: "You",
-    authorUsername: "you",
-    authorAvatarUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`,
-    mediaUrl: normalizedUrl,
-    caption: caption.trim().slice(0, 180),
-    createdAt: now.toISOString(),
-    expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-    viewed: true,
-  };
-  write([...read(), story]);
-  return story;
+  const { data, error } = await db.from("stories").insert({
+    author_id: authorId,
+    media_url: normalizedUrl,
+    created_at: now.toISOString(),
+    expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+    visibility: "public",
+  }).select("id,author_id,media_url,created_at,expires_at,visibility").single();
+  if (error) throw error;
+  storyCaption.set(data.id, caption.trim().slice(0, 180));
+  const stories = await mapStories([data as StoryRow]);
+  const created = stories[0];
+  if (!created) throw new Error("Unable to load created story.");
+  return { ...created, viewed: true };
 }
 
 export function subscribeToStories(listener: () => void): () => void {
-  if (typeof window === "undefined") return () => undefined;
-  const handler = () => listener();
-  window.addEventListener("yuniko:stories-changed", handler);
-  window.addEventListener("storage", handler);
-  return () => { window.removeEventListener("yuniko:stories-changed", handler); window.removeEventListener("storage", handler); };
+  const client = requireSupabase();
+  const channel = client.channel(`stories:feed:${Date.now()}`).on("postgres_changes", {
+    event: "*",
+    schema: "yunikov_v1",
+    table: "stories",
+  }, listener);
+  void channel.subscribe();
+  return () => { void client.removeChannel(channel); };
 }
