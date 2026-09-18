@@ -24,7 +24,10 @@ begin
     p_recipient_id, p_actor_id, left(trim(p_type), 40), left(trim(p_entity_type), 40),
     p_entity_id, left(trim(p_group_key), 160), 1, false
   )
-  on conflict do nothing;
+  on conflict (recipient_id, group_key) where group_key is not null
+  do update set actor_id=excluded.actor_id, type=excluded.type, entity_type=excluded.entity_type,
+                entity_id=excluded.entity_id, count=yunikov_v1.notifications.count+1,
+                is_read=false, created_at=now();
 end;
 $$;
 
@@ -113,3 +116,27 @@ alter publication supabase_realtime add table yunikov_v1.notifications;
 alter publication supabase_realtime add table yunikov_v1.messages;
 alter publication supabase_realtime add table yunikov_v1.follows;
 alter publication supabase_realtime add table yunikov_v1.stories;
+
+
+create or replace function yunikov_v1.notify_message()
+returns trigger language plpgsql set search_path = ''
+as $$
+declare recipient uuid;
+begin
+  for recipient in
+    select user_id from yunikov_v1.conversation_members
+    where conversation_id = new.conversation_id and user_id <> new.sender_id
+  loop
+    perform yunikov_v1.create_notification(
+      recipient,new.sender_id,'message','conversation',new.conversation_id,
+      'message:' || new.conversation_id::text
+    );
+  end loop;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_notify_message on yunikov_v1.messages;
+create trigger trg_notify_message
+after insert on yunikov_v1.messages
+for each row execute function yunikov_v1.notify_message();
