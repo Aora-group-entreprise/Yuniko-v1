@@ -1,76 +1,120 @@
-import { followProfileSchema, type FollowProfile, type FollowStatus } from "./follow.schema";
-import { getBlockedUserIds, isUserBlocked } from "../moderation/moderation.service";
+import { requireSupabase, requireYunikoDb } from "../../lib/supabase";
+import type { FollowStatus } from "./follow.schema";
 
-const REFERENCE_MEDIA = "https://raw.githubusercontent.com/Aora-group-entreprise/Yunikov1.0.0/main/artifacts/yuniko-app/public";
-const FOLLOW_STATE_KEY = "yuniko.follow-state.v1";
+export async function getFollowProfile(username: string) {
+  const db = requireYunikoDb();
+  const { data: profile, error } = await db
+    .from("profiles")
+    .select("id,username,display_name,avatar_url,is_private,follower_count,following_count")
+    .eq("username", username.trim())
+    .single();
+  if (error) throw error;
+  if (!profile) throw new Error("Profile not found.");
 
-const demoProfiles: FollowProfile[] = [
-  { id: "1", username: "sofia.park", displayName: "Sofia Park", avatarUrl: `${REFERENCE_MEDIA}/scene-rooftop.jpg`, isPrivate: false, followerCount: 12840, followingCount: 486, followStatus: "following" },
-  { id: "2", username: "noah.reyes", displayName: "Noah Reyes", avatarUrl: `${REFERENCE_MEDIA}/scene-dj.jpg`, isPrivate: false, followerCount: 8420, followingCount: 302, followStatus: "following" },
-  { id: "3", username: "lina.rose", displayName: "Lina Rose", avatarUrl: `${REFERENCE_MEDIA}/scene-flower.jpg`, isPrivate: true, followerCount: 3910, followingCount: 214, followStatus: "none" },
-];
+  const { data: { user }, error: userError } = await requireSupabase().auth.getUser();
+  if (userError) throw userError;
 
-const currentUserId = "current-user";
-type PersistedFollowState = Record<string, FollowStatus>;
+  let followStatus: FollowStatus = "none";
+  if (user) {
+    if (user.id === profile.id) followStatus = "self";
+    else {
+      const { data: follow, error: followError } = await db.from("follows")
+        .select("status")
+        .eq("follower_id", user.id)
+        .eq("following_id", profile.id)
+        .maybeSingle();
+      if (followError) throw followError;
+      followStatus = follow?.status === "accepted" ? "following" : follow?.status === "pending" ? "requested" : "none";
+    }
+  }
 
-function readState(): PersistedFollowState {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(FOLLOW_STATE_KEY);
-    return raw ? JSON.parse(raw) as PersistedFollowState : {};
-  } catch { return {}; }
-}
-
-function writeState(state: PersistedFollowState): void {
-  if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(FOLLOW_STATE_KEY, JSON.stringify(state)); } catch { /* best effort */ }
-}
-
-function getStatus(profile: FollowProfile): FollowStatus {
-  return readState()[profile.id] ?? profile.followStatus;
-}
-
-export async function getFollowProfile(username: string): Promise<FollowProfile> {
-  const profile = demoProfiles.find((item) => item.username === username);
-  if (!profile) throw new Error("Profile not found");
-  if (isUserBlocked(profile.id)) throw new Error("Profile unavailable");
-  return followProfileSchema.parse({ ...profile, followStatus: getStatus(profile) });
+  return {
+    id: profile.id,
+    username: profile.username,
+    displayName: profile.display_name,
+    avatarUrl: profile.avatar_url ?? "",
+    isPrivate: profile.is_private,
+    followerCount: profile.follower_count,
+    followingCount: profile.following_count,
+    followStatus,
+  };
 }
 
 export async function toggleFollow(profileId: string): Promise<FollowStatus> {
-  if (profileId === currentUserId) return "self";
-  if (isUserBlocked(profileId)) throw new Error("Cannot follow a blocked user");
-  const profile = demoProfiles.find((item) => item.id === profileId);
-  if (!profile) throw new Error("Profile not found");
-  const state = readState();
-  const current = state[profileId] ?? profile.followStatus;
-  const next: FollowStatus = current === "following" || current === "requested" ? "none" : profile.isPrivate ? "requested" : "following";
-  state[profileId] = next;
-  writeState(state);
-  return next;
+  const db = requireYunikoDb();
+  const client = requireSupabase();
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("Not authenticated.");
+  if (profileId === user.id) return "self";
+
+  const { data: target, error: targetError } = await db
+    .from("profiles")
+    .select("id,is_private")
+    .eq("id", profileId)
+    .single();
+  if (targetError) throw targetError;
+  if (!target) throw new Error("Profile not found.");
+
+  const { data: existing, error: existingError } = await db.from("follows")
+    .select("id,status")
+    .eq("follower_id", user.id)
+    .eq("following_id", profileId)
+    .maybeSingle();
+  if (existingError) throw existingError;
+
+  if (existing) {
+    const { error } = await db.from("follows").delete().eq("id", existing.id);
+    if (error) throw error;
+    return "none";
+  }
+
+  const status = target.is_private ? "pending" : "accepted";
+  const { error } = await db.from("follows").insert({
+    follower_id: user.id,
+    following_id: profileId,
+    status,
+  });
+  if (error) throw error;
+  return status === "accepted" ? "following" : "requested";
 }
 
-export async function acceptFollowRequest(profileId: string): Promise<FollowStatus> {
-  if (isUserBlocked(profileId)) throw new Error("Cannot accept a blocked user");
-  if (!demoProfiles.some((item) => item.id === profileId)) throw new Error("Profile not found");
-  const state = readState();
-  state[profileId] = "following";
-  writeState(state);
+export async function acceptFollowRequest(followerId: string): Promise<FollowStatus> {
+  const db = requireYunikoDb();
+  const client = requireSupabase();
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("Not authenticated.");
+
+  const { error } = await db.from("follows")
+    .update({ status: "accepted" })
+    .eq("follower_id", followerId)
+    .eq("following_id", user.id)
+    .eq("status", "pending");
+  if (error) throw error;
   return "following";
 }
 
-export async function rejectFollowRequest(profileId: string): Promise<FollowStatus> {
-  if (isUserBlocked(profileId)) throw new Error("Cannot act on a blocked user");
-  if (!demoProfiles.some((item) => item.id === profileId)) throw new Error("Profile not found");
-  const state = readState();
-  state[profileId] = "none";
-  writeState(state);
+export async function rejectFollowRequest(followerId: string): Promise<FollowStatus> {
+  const db = requireYunikoDb();
+  const client = requireSupabase();
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("Not authenticated.");
+
+  const { error } = await db.from("follows")
+    .delete()
+    .eq("follower_id", followerId)
+    .eq("following_id", user.id)
+    .eq("status", "pending");
+  if (error) throw error;
   return "none";
 }
 
 export function getFollowingProfileIds(): string[] {
-  const blocked = new Set(getBlockedUserIds());
-  return demoProfiles.filter((profile) => !blocked.has(profile.id) && getStatus(profile) === "following").map((profile) => profile.id);
+  return [];
 }
 
-export function getFollowActorId(): string { return currentUserId; }
+export function getFollowActorId(): string {
+  return "";
+}
