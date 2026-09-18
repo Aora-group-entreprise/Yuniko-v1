@@ -1,167 +1,128 @@
-import { messageLogSchema, conversationListSchema, type Conversation, type Message } from "./message.schema";
-import { getBlockedUserIds } from "../moderation/moderation.service";
+import { requireSupabase, requireYunikoDb } from "../../lib/supabase";
 
-const MESSAGE_KEY = "yuniko.messages.v1";
-const ACTOR_KEY = "yuniko.local-actor.v1";
-const CHANGE_EVENT = "yuniko:messages-changed";
+export type ConversationSummary = {
+  id: string; participantId: string; participantName: string; participantUsername: string;
+  participantAvatarUrl: string; updatedAt: string; lastMessagePreview: string; unreadCount: number;
+};
+export type Message = {
+  id: string; conversationId: string; senderId: string; body: string;
+  mediaUrl: string | null; replyToId: string | null; createdAt: string;
+};
 
-const DEMO_PEOPLE = [
-  { id: "2", name: "Sofia Park", username: "sofia.park", avatarUrl: "https://i.pravatar.cc/160?img=47" },
-  { id: "3", name: "Noah Reyes", username: "noah.reyes", avatarUrl: "https://i.pravatar.cc/160?img=12" },
-];
-
-function actorId(): string {
-  if (typeof window === "undefined") return "1";
-  try {
-    const stored = window.localStorage.getItem(ACTOR_KEY);
-    if (stored) return stored;
-    window.localStorage.setItem(ACTOR_KEY, "1");
-  } catch {
-    // Best effort only.
-  }
-  return "1";
+async function uid(): Promise<string> {
+  const { data: { user }, error } = await requireSupabase().auth.getUser();
+  if (error || !user) throw new Error("Authentication required.");
+  return user.id;
 }
 
-function readMessages(): Message[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(MESSAGE_KEY) ?? "[]");
-    const result = messageLogSchema.safeParse(parsed);
-    return result.success ? result.data : [];
-  } catch {
-    return [];
-  }
-}
+export async function getConversations(): Promise<ConversationSummary[]> {
+  const userId = await uid();
+  const db = requireYunikoDb();
+  const { data: members, error } = await db.from("conversation_members")
+    .select("conversation_id,last_read_message_id").eq("user_id", userId).eq("is_archived", false);
+  if (error) throw error;
+  if (!members?.length) return [];
 
-function writeMessages(messages: Message[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(MESSAGE_KEY, JSON.stringify(messages.slice(-500)));
-    window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
-  } catch {
-    // Best effort only.
-  }
-}
+  const ids = members.map(member => member.conversation_id);
+  const { data: convos, error: conversationError } = await db.from("conversations")
+    .select("id,created_at,last_message_at").in("id", ids)
+    .order("last_message_at", { ascending: false, nullsFirst: false });
+  if (conversationError) throw conversationError;
 
-function conversationIdFor(participantId: string): string {
-  return `dm-${[actorId(), participantId].sort().join("-")}`;
-}
+  const result: ConversationSummary[] = [];
+  for (const conversation of convos ?? []) {
+    const member = members.find(item => item.conversation_id === conversation.id);
+    const { data: other, error: otherError } = await db.from("conversation_members")
+      .select("user_id").eq("conversation_id", conversation.id).neq("user_id", userId).limit(1).maybeSingle();
+    if (otherError) throw otherError;
+    if (!other) continue;
 
-function seedIfNeeded(): Message[] {
-  const existing = readMessages();
-  if (existing.length > 0 || typeof window === "undefined") return existing;
+    const { data: profile, error: profileError } = await db.from("profiles")
+      .select("id,display_name,username,avatar_url").eq("id", other.user_id).maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile) continue;
 
-  const now = new Date().toISOString();
-  const seed: Message[] = [
-    {
-      id: "demo-msg-1",
-      conversationId: conversationIdFor("2"),
-      senderId: "2",
-      recipientId: actorId(),
-      body: "Bienvenue sur Yuniko 👋",
-      createdAt: now,
-      readAt: null,
-    },
-  ];
-  writeMessages(seed);
-  return seed;
-}
+    const { data: last, error: lastError } = await db.from("messages")
+      .select("id,body,created_at").eq("conversation_id", conversation.id).is("deleted_at", null)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (lastError) throw lastError;
 
-function blockedIds(): Set<string> {
-  return new Set(getBlockedUserIds());
-}
+    let unreadCount = 0;
+    if (last?.id && member?.last_read_message_id !== last.id) {
+      const { count, error: unreadError } = await db.from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("conversation_id", conversation.id).is("deleted_at", null)
+        .neq("sender_id", userId);
+      if (unreadError) throw unreadError;
+      unreadCount = count ?? 0;
+    }
 
-export function getConversations(): Conversation[] {
-  const messages = seedIfNeeded();
-  const currentActor = actorId();
-  const blocked = blockedIds();
-  const byParticipant = new Map<string, Message[]>();
-
-  for (const message of messages) {
-    if (message.senderId !== currentActor && message.recipientId !== currentActor) continue;
-    const participantId = message.senderId === currentActor ? message.recipientId : message.senderId;
-    if (blocked.has(participantId)) continue;
-    const list = byParticipant.get(participantId) ?? [];
-    list.push(message);
-    byParticipant.set(participantId, list);
-  }
-
-  for (const person of DEMO_PEOPLE) {
-    if (!blocked.has(person.id) && !byParticipant.has(person.id)) byParticipant.set(person.id, []);
-  }
-
-  const conversations = [...byParticipant.entries()].map(([participantId, list]) => {
-    const person = DEMO_PEOPLE.find((item) => item.id === participantId) ?? {
-      id: participantId,
-      name: "Yuniko user",
-      username: `user-${participantId}`,
-      avatarUrl: "https://i.pravatar.cc/160?img=1",
-    };
-    const sorted = [...list].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    const last = sorted.at(-1);
-    const unreadCount = sorted.filter((message) => message.recipientId === currentActor && !message.readAt).length;
-
-    return {
-      id: conversationIdFor(participantId),
-      participantId,
-      participantName: person.name,
-      participantUsername: person.username,
-      participantAvatarUrl: person.avatarUrl,
-      updatedAt: last?.createdAt ?? new Date(0).toISOString(),
-      lastMessagePreview: last?.body ?? "Start a conversation",
+    result.push({
+      id: conversation.id,
+      participantId: profile.id,
+      participantName: profile.display_name,
+      participantUsername: profile.username,
+      participantAvatarUrl: profile.avatar_url ?? "",
+      updatedAt: last?.created_at ?? conversation.last_message_at ?? conversation.created_at,
+      lastMessagePreview: last?.body ?? "",
       unreadCount,
-    } satisfies Conversation;
-  });
-
-  const parsed = conversationListSchema.safeParse(conversations.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
-  return parsed.success ? parsed.data : [];
+    });
+  }
+  return result;
 }
 
-export function getConversationMessages(conversationId: string): Message[] {
-  const blocked = blockedIds();
-  const actor = actorId();
-  return readMessages()
-    .filter((message) => message.conversationId === conversationId)
-    .filter((message) => !blocked.has(message.senderId === actor ? message.recipientId : message.senderId))
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+export async function getConversationMessages(conversationId: string): Promise<Message[]> {
+  const userId = await uid();
+  const db = requireYunikoDb();
+  const { data: member, error: memberError } = await db.from("conversation_members")
+    .select("conversation_id").eq("conversation_id", conversationId).eq("user_id", userId).maybeSingle();
+  if (memberError) throw memberError;
+  if (!member) throw new Error("Conversation access denied.");
+
+  const { data, error } = await db.from("messages")
+    .select("id,conversation_id,sender_id,body,media_url,reply_to_id,created_at")
+    .eq("conversation_id", conversationId).is("deleted_at", null).order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(message => ({
+    id: message.id, conversationId: message.conversation_id, senderId: message.sender_id,
+    body: message.body ?? "", mediaUrl: message.media_url, replyToId: message.reply_to_id, createdAt: message.created_at,
+  }));
 }
 
-export function sendMessage(conversationId: string, recipientId: string, body: string): Message | null {
-  const normalized = body.trim().slice(0, 4000);
-  if (!normalized || getBlockedUserIds().includes(recipientId)) return null;
+export async function sendMessage(conversationId: string, body: string): Promise<Message | null> {
+  const userId = await uid();
+  const text = body.trim().slice(0, 4000);
+  if (!text) return null;
+  const db = requireYunikoDb();
+  const { data: member, error: memberError } = await db.from("conversation_members")
+    .select("conversation_id").eq("conversation_id", conversationId).eq("user_id", userId).maybeSingle();
+  if (memberError) throw memberError;
+  if (!member) throw new Error("Conversation access denied.");
 
-  const message: Message = {
-    id: `msg-${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
-    conversationId,
-    senderId: actorId(),
-    recipientId,
-    body: normalized,
-    createdAt: new Date().toISOString(),
-    readAt: new Date().toISOString(),
+  const { data, error } = await db.from("messages")
+    .insert({ conversation_id: conversationId, sender_id: userId, body: text })
+    .select("id,conversation_id,sender_id,body,media_url,reply_to_id,created_at").single();
+  if (error) throw error;
+  return {
+    id: data.id, conversationId: data.conversation_id, senderId: data.sender_id,
+    body: data.body ?? "", mediaUrl: data.media_url, replyToId: data.reply_to_id, createdAt: data.created_at,
   };
-  writeMessages([...readMessages(), message]);
-  return message;
 }
 
-export function markConversationRead(conversationId: string): void {
-  const currentActor = actorId();
-  const now = new Date().toISOString();
-  let changed = false;
-  const updated = readMessages().map((message) => {
-    if (message.conversationId !== conversationId || message.recipientId !== currentActor || message.readAt) return message;
-    changed = true;
-    return { ...message, readAt: now };
-  });
-  if (changed) writeMessages(updated);
+export async function markConversationRead(conversationId: string, messageId: string | null): Promise<void> {
+  const userId = await uid();
+  const { error } = await requireYunikoDb().from("conversation_members")
+    .update({ last_read_message_id: messageId })
+    .eq("conversation_id", conversationId).eq("user_id", userId);
+  if (error) throw error;
 }
 
-export function subscribeToMessageChanges(listener: () => void): () => void {
-  if (typeof window === "undefined") return () => undefined;
-  const handler = () => listener();
-  window.addEventListener(CHANGE_EVENT, handler);
-  window.addEventListener("storage", handler);
-  return () => {
-    window.removeEventListener(CHANGE_EVENT, handler);
-    window.removeEventListener("storage", handler);
-  };
+export function subscribeToConversation(conversationId: string, listener: () => void): () => void {
+  const client = requireSupabase();
+  const channel = client.channel("conversation:" + conversationId)
+    .on("postgres_changes", {
+      event: "*", schema: "yunikov_v1", table: "messages", filter: "conversation_id=eq." + conversationId,
+    }, listener);
+  void channel.subscribe();
+  return () => { void client.removeChannel(channel); };
 }
