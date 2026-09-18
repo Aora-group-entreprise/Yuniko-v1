@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Check, Grid3X3, MoreHorizontal, UserRound, Users, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { getPublicProfile } from "./profile.service";
+import { getMyProfile, getPublicProfileById } from "./profile.service";
 import { acceptFollowRequest, rejectFollowRequest, toggleFollow } from "../follow/follow.service";
 import { listFollowRequests, listFollowers, listFollowing, removeFollower, type FollowListItem } from "../follow/follow-lists.service";
 import { useFollowStore } from "../follow/follow.store";
@@ -10,9 +10,18 @@ import { ModerationSheet } from "../moderation/ModerationSheet";
 
 type ListView = "followers" | "following" | "requests" | null;
 
-export function ProfilePage({ onBack, onOpenPost, profileId = "2" }: { onBack: () => void; onOpenPost: (postId: string) => void; profileId?: string }) {
-  const username = profileId === "3" ? "noah.reed" : "sofia.park";
-  const { data, isLoading, isError } = useQuery({ queryKey: ["profile", username], queryFn: () => getPublicProfile(username), staleTime: 30_000 });
+export function ProfilePage({ onBack, onOpenPost, profileId }: { onBack: () => void; onOpenPost: (postId: string) => void; profileId?: string }) {
+  const validProfileId = profileId && /^[0-9a-f-]{36}$/i.test(profileId) ? profileId : null;
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["profile", validProfileId ?? "me"],
+    queryFn: async () => {
+      if (validProfileId) return getPublicProfileById(validProfileId);
+      const me = await getMyProfile();
+      if (!me) throw new Error("Not authenticated.");
+      return getPublicProfileById(me.id);
+    },
+    staleTime: 30_000,
+  });
   const storedStatus = useFollowStore((state) => state.statusByProfile[data?.id ?? ""]);
   const setStatus = useFollowStore((state) => state.setStatus);
   const setPending = useFollowStore((state) => state.setPending);
@@ -66,7 +75,7 @@ export function ProfilePage({ onBack, onOpenPost, profileId = "2" }: { onBack: (
       </header>
       <section className="profile-scroll">
         <div className="profile-identity">
-          <div className="profile-avatar-ring"><img src={data.avatarUrl} alt="" /></div>
+          <div className="profile-avatar-ring"><img src={data.avatarUrl ?? ""} alt="" /></div>
           <h1>{data.displayName}</h1>
           <p className="profile-username">@{data.username}</p>
           {data.country && <p className="profile-country">{data.country}</p>}
