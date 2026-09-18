@@ -15,8 +15,8 @@ export type { ProfileUpdateInput };
 async function getPublicProfileRecord(filter: { username?: string; id?: string }): Promise<PublicProfile> {
   const db = requireYunikoDb();
   const profileQuery = filter.id
-    ? db.from("profiles").select("id,username,display_name,bio,avatar_url,banner_url,is_private,country_code,follower_count,following_count").eq("id", filter.id).single()
-    : db.from("profiles").select("id,username,display_name,bio,avatar_url,banner_url,is_private,country_code,follower_count,following_count").eq("username", filter.username!.trim()).single();
+    ? db.from("profiles").select("id,username,display_name,bio,avatar_url,banner_url,is_private,country_code,follower_count,following_count,post_count").eq("id", filter.id).single()
+    : db.from("profiles").select("id,username,display_name,bio,avatar_url,banner_url,is_private,country_code,follower_count,following_count,post_count").eq("username", filter.username!.trim()).single();
 
   const { data: profile, error: profileError } = await profileQuery;
   if (profileError) throw profileError;
@@ -69,7 +69,7 @@ async function getPublicProfileRecord(filter: { username?: string; id?: string }
     country: profile.country_code ?? undefined,
     followerCount: profile.follower_count,
     followingCount: profile.following_count,
-    postCount: posts?.length ?? 0,
+    postCount: profile.post_count,
     isPrivate: profile.is_private,
     followStatus,
     posts: (posts ?? [])
