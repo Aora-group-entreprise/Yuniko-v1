@@ -1,8 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProfileEditor } from "../profile/ProfileEditor";
 import { ArrowLeft, Bell, Check, ChevronRight, Database, FileText, HelpCircle, Info, LogOut, Moon, RotateCcw, ShieldCheck, Sun, UserRound } from "lucide-react";
 import { getSettings, resetSettings, subscribeToSettings, updateSettings, type AppLanguage, type Appearance, type CommentPrivacy, type MessagePrivacy, type StoryPrivacy, type YunikoSettings } from "./settings.service";
 import { useSessionStore } from "../../stores/sessionStore";
+import { getMyProfile, updateMyProfile } from "../profile/profile.service";
 
 type Section = "main" | "account" | "privacy" | "notifications" | "data" | "moderation" | "about" | "blocked" | "reports" | "terms" | "policy" | "guidelines" | "support" | "profile-editor" | "credentials";
 
@@ -17,7 +19,7 @@ export function SettingsPage({ onBack, onOpenSecurity }: { onBack: () => void; o
     {section === "account" && <><InfoBox>Manage the identity and profile information shown on Yuniko.</InfoBox><ActionRow title="Edit profile" description="Open the profile editor entry point." onClick={() => setSection("profile-editor")} /><ActionRow title="Email & password" description="Open account credential information." onClick={() => setSection("credentials")} /></>}
     {section === "profile-editor" && <ProfileEditor onBack={() => setSection("account")} />}
     {section === "credentials" && <><InfoBox>Email and password changes require the future authentication service. No credential is stored or exposed by this frontend-only prototype.</InfoBox><ActionRow title="Back to account" description="Return to account settings." onClick={() => setSection("account")} /></>}
-    {section === "privacy" && <><SettingRow title="Private account" description="Only approved followers can follow this account." value={settings.privateAccount} onChange={v => change({ privateAccount: v })} /><SettingRow title="Activity status" description="Allow people to see when you are active." value={settings.showActivityStatus} onChange={v => change({ showActivityStatus: v })} /><SelectRow title="Who can message you" value={settings.messagePrivacy} options={["everyone", "followers", "nobody"]} onChange={v => change({ messagePrivacy: v as MessagePrivacy })} /><SelectRow title="Who can view your stories" value={settings.storyPrivacy} options={["everyone", "followers", "close_friends"]} onChange={v => change({ storyPrivacy: v as StoryPrivacy })} /><SelectRow title="Who can comment" value={settings.commentPrivacy} options={["everyone", "followers", "nobody"]} onChange={v => change({ commentPrivacy: v as CommentPrivacy })} /><ActionRow title="Blocked accounts" description="Open blocked-account management." onClick={() => setSection("blocked")} /></>}
+    {section === "privacy" && <><PrivateAccountSetting localValue={settings.privateAccount} onLocalChange={v => change({ privateAccount: v })} /><SettingRow title="Activity status" description="Allow people to see when you are active." value={settings.showActivityStatus} onChange={v => change({ showActivityStatus: v })} /><SelectRow title="Who can message you" value={settings.messagePrivacy} options={["everyone", "followers", "nobody"]} onChange={v => change({ messagePrivacy: v as MessagePrivacy })} /><SelectRow title="Who can view your stories" value={settings.storyPrivacy} options={["everyone", "followers", "close_friends"]} onChange={v => change({ storyPrivacy: v as StoryPrivacy })} /><SelectRow title="Who can comment" value={settings.commentPrivacy} options={["everyone", "followers", "nobody"]} onChange={v => change({ commentPrivacy: v as CommentPrivacy })} /><ActionRow title="Blocked accounts" description="Open blocked-account management." onClick={() => setSection("blocked")} /></>}
     {section === "notifications" && <><SettingRow title="Push notifications" description="Receive notification alerts on this device." value={settings.pushNotifications} onChange={v => change({ pushNotifications: v })} /><SettingRow title="Messages" description="Alerts for new private messages." value={settings.messageNotifications} onChange={v => change({ messageNotifications: v })} /><SettingRow title="Likes" description="Alerts when someone likes your content." value={settings.likeNotifications} onChange={v => change({ likeNotifications: v })} /><SettingRow title="Comments" description="Alerts for comments and replies." value={settings.commentNotifications} onChange={v => change({ commentNotifications: v })} /><SettingRow title="Followers" description="New followers and follow requests." value={settings.followerNotifications} onChange={v => change({ followerNotifications: v })} /><SettingRow title="Stories" description="Story-related notifications." value={settings.storyNotifications} onChange={v => change({ storyNotifications: v })} /><SettingRow title="Email notifications" description="Allow non-essential notification emails." value={settings.emailNotifications} onChange={v => change({ emailNotifications: v })} /></>}
     {section === "data" && <><InfoBox>Yuniko is currently frontend-only. These controls manage local prototype state, not server data.</InfoBox><ActionRow title="Local storage" description="Preferences, drafts and demo state may be stored locally on this device." onClick={() => undefined} /><button type="button" className="settings-action danger" onClick={() => { if (window.confirm("Reset all local Yuniko preferences?")) setSettings(resetSettings()); }}><Database size={17}/><span><strong>Reset local preferences</strong><small>Restore settings to their defaults.</small></span></button></>}
     {section === "moderation" && <><ActionRow title="Blocked accounts" description="Open blocked-account management." onClick={() => setSection("blocked")} /><ActionRow title="My reports" description="Review reports submitted from this device." onClick={() => setSection("reports")} /><InfoBox>Reporting and blocking use the local frontend moderation queue until the server moderation system is connected.</InfoBox></>}
@@ -37,3 +39,47 @@ function ActionRow({ title, description, onClick }: { title: string; description
 function InfoBox({ children }: { children: ReactNode }) { return <div className="settings-info">{children}</div>; }
 function SelectRow({ title, value, options, onChange }: { title: string; value: string; options: string[]; onChange: (v: string) => void }) { return <div className="settings-row"><div><strong>{title}</strong></div><select value={value} onChange={e => onChange(e.target.value)}>{options.map(o => <option key={o} value={o}>{o.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase())}</option>)}</select></div>; }
 function SettingRow({ title, description, value, onChange }: { title: string; description: string; value: boolean; onChange: (value: boolean) => void }) { return <div className="settings-row"><div><strong>{title}</strong><small>{description}</small></div><button type="button" className={`settings-toggle ${value ? "on" : ""}`} aria-pressed={value} onClick={() => onChange(!value)}><span/></button></div>; }
+
+
+function PrivateAccountSetting({ localValue, onLocalChange }: { localValue: boolean; onLocalChange: (value: boolean) => void }) {
+  const queryClient = useQueryClient();
+  const profileQuery = useQuery({ queryKey: ["my-profile"], queryFn: getMyProfile, staleTime: 30_000 });
+  const mutation = useMutation({
+    mutationFn: (isPrivate: boolean) => {
+      const profile = profileQuery.data;
+      if (!profile) throw new Error("Profile not available.");
+      return updateMyProfile({
+        username: profile.username,
+        displayName: profile.display_name,
+        bio: profile.bio ?? "",
+        country: profile.country_code ?? "",
+        website: profile.website ?? "",
+        isPrivate,
+      });
+    },
+    onSuccess: (profile) => {
+      onLocalChange(profile.is_private);
+      queryClient.setQueryData(["my-profile"], profile);
+    },
+  });
+
+  const value = profileQuery.data?.is_private ?? localValue;
+  return (
+    <div className="settings-row">
+      <div>
+        <strong>Private account</strong>
+        <small>Only approved followers can follow this account.</small>
+      </div>
+      <button
+        type="button"
+        className={`settings-toggle ${value ? "on" : ""}`}
+        aria-pressed={value}
+        aria-busy={mutation.isPending}
+        disabled={profileQuery.isLoading || mutation.isPending}
+        onClick={() => void mutation.mutateAsync(!value)}
+      >
+        <span />
+      </button>
+    </div>
+  );
+}
