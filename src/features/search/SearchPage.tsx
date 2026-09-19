@@ -21,13 +21,13 @@ export function SearchPage({ onBack, onOpenPost, onOpenProfile }: { onBack: () =
   const profiles = data?.profiles ?? [];
   const posts = data?.posts ?? [];
 
-  return <main className="feed-shell">
+  return <main className="feed-shell yunikov1-page">
     <header className="feed-header">
       <button type="button" aria-label="Back" onClick={onBack}><ArrowLeft size={20} /></button>
       <strong>Search</strong>
       <span />
     </header>
-    <section className="search-page">
+    <section className="search-page yunikov1-search">
       <label className="search-box"><Search size={18} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search people or posts" /></label>
       {!query.trim() && <div className="feed-state"><Search size={28} /><span>Search Yuniko</span></div>}
       {isFetching && <div className="feed-state">Searching…</div>}
