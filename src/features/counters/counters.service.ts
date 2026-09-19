@@ -1,8 +1,8 @@
 import { getInteractionEvents } from "../events/events.service";
 import { postCounterSchema, type PostCounter } from "./counter.schema";
 
-export function getPostCounters(postId: string, base: Pick<PostCounter, "likes" | "comments" | "saves" | "shares">): PostCounter {
-  const events = getInteractionEvents(postId);
+export async function getPostCounters(postId: string, base: Pick<PostCounter, "likes" | "comments" | "saves" | "shares">): Promise<PostCounter> {
+  const events = await getInteractionEvents(postId);
   const count = (type: string) => events.filter((event) => event.type === type).length;
   return postCounterSchema.parse({
     postId,
