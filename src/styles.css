@@ -238,3 +238,26 @@ input:focus,textarea:focus,select:focus{border-color:rgba(255,0,110,.42)!importa
 .notification-copy strong{font-weight:700}
 .notification-copy small{display:block;color:rgba(255,255,255,.4);font-size:11px;margin-top:3px}
 .notification-dot{width:7px;height:7px;border-radius:50%;background:#ff3d9a;flex:none}
+
+
+/* Yunikov1.0.0 direct page treatment */
+.yunikov1-page{min-height:100dvh;background:#0d0b14;color:#fff}
+.messages-page.yunikov1-page{padding-bottom:76px}
+.messages-header,.conversation-header{background:rgba(13,11,20,.88);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.07);padding:14px 16px}
+.messages-header{display:flex;align-items:center;gap:12px}
+.messages-header h1{font-size:18px;font-weight:800}.messages-header p{font-size:11px;color:rgba(255,255,255,.42);margin-top:2px}
+.messages-list{max-width:760px;margin:0 auto}
+.conversation-item{width:100%;display:flex;align-items:center;gap:12px;padding:13px 15px;background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,.055);color:#fff;text-align:left}
+.conversation-item:hover{background:rgba(255,255,255,.035)}
+.conversation-item>img,.conversation-header>img{width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,0,110,.2)}
+.conversation-copy{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}.conversation-copy strong{font-size:14px}.conversation-copy small{font-size:10px;color:rgba(255,255,255,.38)}.conversation-copy span{font-size:12px;color:rgba(255,255,255,.58);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.unread-count{min-width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#ff006e,#8b00ff);font-size:10px}
+.conversation-header{display:flex;align-items:center;gap:12px}.conversation-header div{display:flex;flex-direction:column}.conversation-header strong{font-size:14px}.conversation-header small{font-size:10px;color:rgba(255,255,255,.4)}
+.message-thread{max-width:760px;margin:0 auto;min-height:calc(100dvh - 140px);padding:18px 14px 90px;display:flex;flex-direction:column;gap:8px}
+.message-row{display:flex}.message-row.outgoing{justify-content:flex-end}.message-bubble{max-width:76%;padding:10px 13px;border-radius:18px;background:rgba(255,255,255,.07);font-size:13px}.message-row.outgoing .message-bubble{background:linear-gradient(135deg,#ff006e,#8b00ff)}
+.message-composer{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;gap:8px;padding:10px 12px;background:rgba(13,11,20,.9);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.07)}
+.message-composer textarea{flex:1;resize:none;border-radius:18px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);padding:10px 13px;color:#fff;outline:none}.message-composer button{width:42px;border:0;border-radius:50%;background:linear-gradient(135deg,#ff006e,#8b00ff);color:#fff}
+.yunikov1-search{max-width:760px;margin:0 auto;padding:16px}.search-box{display:flex;align-items:center;gap:9px;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}.search-box input{flex:1;background:transparent;color:#fff;outline:none}.search-box svg{color:rgba(255,255,255,.4)}
+.yunikov1-profile .profile-identity{background:linear-gradient(180deg,rgba(255,0,110,.07),transparent 60%);padding-top:24px}
+.yunikov1-profile .profile-avatar-ring{box-shadow:0 0 0 3px rgba(255,0,110,.18),0 15px 45px rgba(139,0,255,.18)}
+.yunikov1-profile .profile-follow-placeholder{background:linear-gradient(135deg,#ff006e,#8b00ff);border:0;color:#fff;border-radius:14px;box-shadow:0 8px 28px rgba(255,0,110,.2)}
