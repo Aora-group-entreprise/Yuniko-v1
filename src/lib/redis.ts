@@ -6,11 +6,16 @@ export type RedisClient = {
 
 let clientPromise: Promise<RedisClient | null> | null = null;
 
+function redisUrl(): string | undefined {
+  return (import.meta.env.VITE_REDIS_URL as string | undefined) ?? undefined;
+}
+
 export async function getRedis(): Promise<RedisClient | null> {
-  if (!process.env.REDIS_URL) return null;
+  const url = redisUrl();
+  if (!url) return null;
   if (clientPromise) return clientPromise;
   clientPromise = import("redis").then(async ({ createClient }) => {
-    const client = createClient({ url: process.env.REDIS_URL });
+    const client = createClient({ url });
     client.on("error", () => undefined);
     await client.connect();
     return client as unknown as RedisClient;
