@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Bell, ChevronDown, Globe, MessageCircle, Plus, Search, Settings, ShieldCheck, UserPlus, UserRound, WifiOff } from "lucide-react";
+import { Bell, ChevronDown, Globe, Hash, MessageCircle, Plus, Search, UserPlus, UserRound, WifiOff } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useSessionStore } from "../../stores/sessionStore";
 import { getFeedPage, markPostsSeen } from "./feed.service";
@@ -110,33 +110,31 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
     return () => observer.disconnect();
   }, [posts.length]);
 
-  return <main className="feed-shell">
-    <header className="feed-header">
+  return <main className="feed-shell relative min-h-screen bg-[#0d0b14] overflow-hidden">
+    <header className="feed-header absolute inset-x-0 top-0 z-50 h-14">
       <button type="button" className="yuniko-wordmark" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Yuniko</button>
       <button type="button" className="world-selector" onClick={() => setWorldMenu(value => !value)} aria-expanded={worldMenu}><Globe size={12} />World Feed<ChevronDown size={11} /></button>
       <div className="feed-header-actions">
         <button type="button" aria-label="Search" onClick={onOpenSearch}><Search size={20} /></button>
         <button type="button" aria-label="Add friends" onClick={onOpenSearch}><UserPlus size={20} /></button>
-        <button type="button" aria-label="Security" onClick={onOpenSecurity}><ShieldCheck size={20} /></button>
-        <button type="button" aria-label="Settings" onClick={onOpenSettings}><Settings size={20} /></button>
       </div>
     </header>
-    {worldMenu && <div className="world-menu" role="menu"><button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><Globe size={13} />World Feed</button><button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><span>#</span>Trending tags</button></div>}
+    {worldMenu && <><button className="fixed inset-0 z-40" aria-label="Close menu" onClick={() => setWorldMenu(false)} /><div className="world-menu absolute top-[60px] left-1/2 -translate-x-1/2 z-50" role="menu"><button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><Globe size={13} />World Feed</button><button type="button" role="menuitem" onClick={() => { setWorldMenu(false); onOpenSearch(); }}><Hash size={13} />Trending tags</button></div></>}
     {!online && <div className="offline-bar"><WifiOff size={12} /><span>Offline mode</span></div>}
-    <section className="feed-viewport" data-testid="posts-feed" aria-label="World Feed">
+    <section className="feed-viewport absolute inset-x-0 top-[60px] bottom-[64px] overflow-y-scroll snap-y snap-mandatory no-scrollbar" data-testid="posts-feed" aria-label="World Feed">
       {isLoading && <FeedSkeleton />}
       {isError && <div className="feed-state">Unable to load the feed.</div>}
-      {!isLoading && !isError && posts.map(post => <div key={post.id} data-post-id={post.id} className="feed-slide"><PostCard post={post} /></div>)}
+      {!isLoading && !isError && posts.map(post => <div key={post.id} data-post-id={post.id} className="feed-slide relative w-full max-w-[920px] mx-auto px-2 py-1 snap-start snap-always" style={{ height: "calc(100dvh - 124px)", minHeight: 480 }}><div className="relative w-full h-full rounded-2xl overflow-hidden"><PostCard post={post} /></div></div>)}
       {!isLoading && !isError && posts.length === 0 && <div className="feed-state">No posts yet.</div>}
       <div ref={loadMoreRef} aria-hidden="true" style={{ height: 1 }} />
       {isFetchingNextPage && <div className="feed-state">Chargement…</div>}
     </section>
     <nav className="bottom-nav" aria-label="Primary navigation">
-      <button type="button" className="nav-item active" aria-label="Home"><span>⌂</span></button>
-      <button type="button" className="nav-item notification-nav" aria-label="Notifications" onClick={onOpenNotifications}><span><Bell size={21} />{unreadNotifications > 0 && <b>{unreadNotifications > 99 ? "99+" : unreadNotifications}</b>}</span></button>
+      <button type="button" className="nav-item active" aria-label="Home"><span>⌂</span><small>Home</small></button>
+      <button type="button" className="nav-item notification-nav" aria-label="Notifications" onClick={onOpenNotifications}><span><Bell size={21} />{unreadNotifications > 0 && <b>{unreadNotifications > 99 ? "99+" : unreadNotifications}</b>}</span><small>Alerts</small></button>
       <button className="create-button" type="button" aria-label="Create" onClick={onOpenCreate}><Plus size={28} /></button>
-      <button type="button" className="nav-item" aria-label="Messages" onClick={onOpenMessages}><span><MessageCircle size={21} /></span></button>
-      <button type="button" className="nav-item" aria-label="Profile" onClick={onOpenProfile}><span><UserRound size={21} /></span></button>
+      <button type="button" className="nav-item" aria-label="Messages" onClick={onOpenMessages}><span><MessageCircle size={21} /></span><small>Messages</small></button>
+      <button type="button" className="nav-item" aria-label="Profile" onClick={onOpenProfile}><span><UserRound size={21} /></span><small>Profile</small></button>
     </nav>
   </main>;
 }
