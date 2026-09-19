@@ -100,23 +100,37 @@ export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> 
   if (personalizedError) throw personalizedError;
   if (globalError) throw globalError;
 
-  type FeedRow = { id: string; author_id: string; caption: string | null; created_at: string; like_count: number; comment_count: number; save_count: number; share_count: number; view_count: number };\n  const rowMap = new Map<string, FeedRow>();
-  for (const row of [...(personalizedRows ?? []), ...(globalRows ?? [])]) rowMap.set(String(row.id), row as unknown as FeedRow);
-  const rows: FeedRow[] = [...rowMap.values()].sort((a,b) => {
-    const ad = Date.parse(String(a.created_at)); const bd = Date.parse(String(b.created_at));
+  type FeedRow = {
+    id: string;
+    author_id: string;
+    caption: string | null;
+    created_at: string;
+    like_count: number;
+    comment_count: number;
+    save_count: number;
+    share_count: number;
+    view_count: number;
+  };
+  const rowMap = new Map<string, FeedRow>();
+  for (const row of [...(personalizedRows ?? []), ...(globalRows ?? [])]) {
+    rowMap.set(String(row.id), row as unknown as FeedRow);
+  }
+  const rows: FeedRow[] = [...rowMap.values()].sort((a, b) => {
+    const ad = Date.parse(String(a.created_at));
+    const bd = Date.parse(String(b.created_at));
     return bd - ad || String(b.id).localeCompare(String(a.id));
   }).slice(0, CANDIDATE_BATCH);
 
-  const candidateIds = (rows ?? []).map(row => row.id);
+  const candidateIds = rows.map(row => row.id);
   const { data: distributions, error: distributionError } = candidateIds.length
     ? await db.from("post_distribution").select("post_id,stage,countries,status").in("post_id", candidateIds)
     : { data: [], error: null };
   if (distributionError) throw distributionError;
   const distributionMap = new Map((distributions ?? []).map(row => [row.post_id, row]));
-  const visibleRows = (rows ?? []).filter(row => {
+  const visibleRows = rows.filter(row => {
     if (blocked.has(row.author_id)) return false;
     const distribution = distributionMap.get(row.id);
-    if (!distribution || distribution.status === "active" && (!Array.isArray(distribution.countries) || distribution.countries.length === 0)) return true;
+    if (!distribution || (distribution.status === "active" && (!Array.isArray(distribution.countries) || distribution.countries.length === 0))) return true;
     if (distribution.status === "stopped") return false;
     if (Number(distribution.stage) >= 4) return true;
     if (!viewerCountry) return true;
@@ -124,13 +138,13 @@ export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> 
   });
   const pageRows = visibleRows.slice(0, PAGE_SIZE);
   const posts = await loadFeedPosts(pageRows);
-  const lastCandidate = rows?.at(-1);
+  const lastCandidate = rows.at(-1);
   const nextCursor = lastCandidate ? { createdAt: lastCandidate.created_at, id: lastCandidate.id } : null;
 
   return {
     ...chronologicalFeedSchema.parse({ posts, stories: [] }),
     nextCursor,
-    hasMore: (rows ?? []).length >= CANDIDATE_BATCH,
+    hasMore: rows.length >= CANDIDATE_BATCH,
   };
 }
 
@@ -146,7 +160,7 @@ export async function markPostsSeen(postIds: string[]): Promise<void> {
 }
 
 export async function getWorldFeed(): Promise<ChronologicalFeed> {
-  return (await getFeedPage(null));
+  return await getFeedPage(null);
 }
 
 export async function getChronologicalFeed(): Promise<ChronologicalFeed> {
