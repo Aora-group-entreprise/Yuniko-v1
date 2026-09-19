@@ -68,19 +68,41 @@ export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> 
   if (seenError) throw seenError;
   const seenIds = (seenRows ?? []).map(row => row.post_id);
 
-  let query = db.from("posts")
-    .select("id,author_id,caption,created_at,like_count,comment_count,save_count,share_count,view_count")
-    .eq("status","ready").is("deleted_at",null)
-    .order("created_at",{ascending:false}).order("id",{ascending:false})
-    .limit(CANDIDATE_BATCH);
+  const [{ data: follows, error: followsError }, { data: affinities, error: affinityError }] = await Promise.all([
+    db.from("follows").select("following_id").eq("follower_id", userId).eq("status", "accepted").limit(100),
+    db.from("user_affinity").select("target_user_id,score").eq("user_id", userId).order("score", { ascending: false }).limit(100),
+  ]);
+  if (followsError) throw followsError;
+  if (affinityError) throw affinityError;
 
-  if (cursor) {
-    query = query.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
-  }
-  if (seenIds.length) query = query.not("id","in",`(${seenIds.join(",")})`);
+  const authorIds = [...new Set([
+    ...(follows ?? []).map(row => row.following_id),
+    ...(affinities ?? []).filter(row => Number(row.score) > 0).map(row => row.target_user_id),
+  ])].slice(0, 150);
 
-  const { data: rows, error } = await query;
-  if (error) throw error;
+  const baseSelect = "id,author_id,caption,created_at,like_count,comment_count,save_count,share_count,view_count";
+  const buildQuery = (seed: "personalized" | "global") => {
+    let q = db.from("posts").select(baseSelect).eq("status","ready").is("deleted_at",null)
+      .order("created_at",{ascending:false}).order("id",{ascending:false}).limit(seed === "personalized" ? 60 : CANDIDATE_BATCH);
+    if (seed === "personalized" && authorIds.length) q = q.in("author_id", authorIds);
+    if (cursor) q = q.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
+    if (seenIds.length) q = q.not("id","in",`(${seenIds.join(",")})`);
+    return q;
+  };
+
+  const [{ data: personalizedRows, error: personalizedError }, { data: globalRows, error: globalError }] = await Promise.all([
+    authorIds.length ? buildQuery("personalized") : Promise.resolve({ data: [], error: null }),
+    buildQuery("global"),
+  ]);
+  if (personalizedError) throw personalizedError;
+  if (globalError) throw globalError;
+
+  const rowMap = new Map<string, Record<string, unknown>>();
+  for (const row of [...(personalizedRows ?? []), ...(globalRows ?? [])]) rowMap.set(row.id, row);
+  const rows = [...rowMap.values()].sort((a,b) => {
+    const ad = Date.parse(String(a.created_at)); const bd = Date.parse(String(b.created_at));
+    return bd - ad || String(b.id).localeCompare(String(a.id));
+  }).slice(0, CANDIDATE_BATCH);
 
   const candidateIds = (rows ?? []).map(row => row.id);
   const { data: distributions, error: distributionError } = candidateIds.length
