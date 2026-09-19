@@ -5,21 +5,19 @@ Deno.serve(async (req) => {
   const authHeader=req.headers.get("Authorization") ?? "";
   const token=authHeader.replace(/^Bearer\s+/i,"");
   if(!token) return new Response(JSON.stringify({error:"Unauthorized"}),{status:401,headers:{"content-type":"application/json"}});
-  const url=Deno.env.get("SUPABASE_URL")!;
-  const anon=Deno.env.get("SUPABASE_ANON_KEY")!;
-  const service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const userClient=createClient(url,anon,{global:{headers:{Authorization:authHeader}},auth:{persistSession:false,autoRefreshToken:false}});
-  const {data:{user},error:userError}=await userClient.auth.getUser(token);
-  if(userError||!user) return new Response(JSON.stringify({error:"Unauthorized"}),{status:401,headers:{"content-type":"application/json"}});
-  const admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
+  const url=Deno.env.get("SUPABASE_URL")!, anon=Deno.env.get("SUPABASE_ANON_KEY")!, service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const client=createClient(url,anon,{global:{headers:{Authorization:authHeader}},auth:{persistSession:false,autoRefreshToken:false}});
+  const {data:{user},error}=await client.auth.getUser(token);
+  if(error||!user) return new Response(JSON.stringify({error:"Unauthorized"}),{status:401,headers:{"content-type":"application/json"}});
   if(req.method==="POST"){
     const body=await req.json().catch(()=>({}));
     if(body?.action==="revoke_others"){
-      const {error}=await admin.auth.admin.signOut(user.id,"others");
-      if(error) return new Response(JSON.stringify({error:error.message}),{status:400,headers:{"content-type":"application/json"}});
+      const admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
+      const {error:revokeError}=await admin.auth.admin.signOut(user.id,"others");
+      if(revokeError) return new Response(JSON.stringify({error:revokeError.message}),{status:400,headers:{"content-type":"application/json"}});
     }
   }
-  const {data,error}=await admin.schema("auth").from("sessions").select("id,created_at,updated_at,user_agent,ip,aal,not_after").eq("user_id",user.id).order("updated_at",{ascending:false});
-  if(error) return new Response(JSON.stringify({error:error.message}),{status:500,headers:{"content-type":"application/json"}});
-  return new Response(JSON.stringify({sessions:(data??[]).map(row=>({id:row.id,createdAt:row.created_at,lastSeenAt:row.updated_at,userAgent:row.user_agent ?? "Unknown device",ip:row.ip,aal:row.aal,notAfter:row.not_after}))}),{headers:{"content-type":"application/json"}});
+  let claims:{session_id?:string}={};
+  try{const part=token.split(".")[1];claims=JSON.parse(atob(part.replace(/-/g,"+").replace(/_/g,"/")));}catch{}
+  return new Response(JSON.stringify({session:{id:claims.session_id??"",userId:user.id,userAgent:req.headers.get("user-agent")??"Current device",createdAt:user.created_at,lastSeenAt:new Date().toISOString()}}),{headers:{"content-type":"application/json"}});
 });
