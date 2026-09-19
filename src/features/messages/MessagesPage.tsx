@@ -22,12 +22,12 @@ export function MessagesPage({ onBack }: MessagesPageProps) {
     }} />;
   }
 
-  return <main className="messages-page">
+  return <main className="messages-page yunikov1-page">
     <header className="messages-header">
       <button type="button" className="messages-back" aria-label="Back" onClick={onBack}><ArrowLeft size={21} /></button>
       <div><h1>Messages</h1><p>Private conversations</p></div>
     </header>
-    <section className="messages-list" aria-label="Conversations">
+    <section className="messages-list yunikov1-list" aria-label="Conversations">
       {query.isLoading ? <div className="feed-state">Loading messages…</div> : query.data?.map((conversation) => (
         <button key={conversation.id} type="button" className="conversation-item" onClick={() => setSelectedId(conversation.id)}>
           <img src={conversation.participantAvatarUrl} alt="" />
@@ -90,7 +90,7 @@ function ConversationView({ conversation, onBack }: { conversation: Conversation
     setDraft("");
   };
 
-  return <main className="messages-page conversation-page">
+  return <main className="messages-page conversation-page yunikov1-page">
     <header className="conversation-header">
       <button type="button" className="messages-back" aria-label="Back" onClick={onBack}><ArrowLeft size={21} /></button>
       <img src={conversation.participantAvatarUrl} alt="" />
