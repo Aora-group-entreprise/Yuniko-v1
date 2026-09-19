@@ -76,6 +76,17 @@ export function subscribeToRealtime(): () => void {
       if (rememberEvent(id)) invalidate("stories","story");
     });
   }));
+  void requireSupabase().auth.getUser().then(({data}) => {
+    const userId = data.user?.id;
+    if (!userId) return;
+    const cleanup = addChannel("user:notifications:" + userId, channel => {
+      channel.on("postgres_changes",{event:"*",schema:"yunikov_v1",table:"notifications",filter:"recipient_id=eq."+userId},payload => {
+        const id = String(payload.new?.id ?? payload.old?.id ?? crypto.randomUUID());
+        if (rememberEvent(id)) invalidate("notifications","notification");
+      });
+    });
+    cleanups.push(cleanup);
+  }).catch(() => undefined);
   const stopUser = () => {
     for (const cleanup of [...cleanups]) cleanup();
   };
