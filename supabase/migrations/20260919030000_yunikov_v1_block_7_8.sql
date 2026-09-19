@@ -90,3 +90,15 @@ drop trigger if exists trg_realtime_follows on yunikov_v1.follows;
 create trigger trg_realtime_follows after insert or update or delete on yunikov_v1.follows for each row execute function yunikov_v1.notify_realtime();
 drop trigger if exists trg_realtime_blocks on yunikov_v1.blocks;
 create trigger trg_realtime_blocks after insert or delete on yunikov_v1.blocks for each row execute function yunikov_v1.notify_realtime();
+
+-- Enable Supabase Postgres Changes for all block-8 interaction streams.
+alter publication supabase_realtime add table yunikov_v1.posts;
+alter publication supabase_realtime add table yunikov_v1.notifications;
+alter publication supabase_realtime add table yunikov_v1.messages;
+alter publication supabase_realtime add table yunikov_v1.stories;
+alter publication supabase_realtime add table yunikov_v1.likes;
+alter publication supabase_realtime add table yunikov_v1.comments;
+alter publication supabase_realtime add table yunikov_v1.saves;
+alter publication supabase_realtime add table yunikov_v1.shares;
+alter publication supabase_realtime add table yunikov_v1.follows;
+alter publication supabase_realtime add table yunikov_v1.blocks;
