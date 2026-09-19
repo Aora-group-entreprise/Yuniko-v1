@@ -11,7 +11,7 @@ create index if not exists events_post_created_idx
 
 create index if not exists notifications_recipient_unread_idx
   on yunikov_v1.notifications (recipient_id, created_at desc)
-  where read_at is null;
+  where is_read = false;
 
 create index if not exists messages_conversation_cursor_idx
   on yunikov_v1.messages (conversation_id, created_at desc, id desc);
@@ -22,8 +22,8 @@ create index if not exists seen_posts_user_seen_idx
 create index if not exists stories_author_expiry_idx
   on yunikov_v1.stories (author_id, expires_at desc);
 
-create index if not exists reports_target_created_idx
-  on yunikov_v1.reports (target_id, created_at desc);
+create index if not exists reports_entity_created_idx
+  on yunikov_v1.reports (entity_type, entity_id, created_at desc);
 
 create or replace function yunikov_v1.cleanup_expired_data()
 returns void
