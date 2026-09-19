@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { Bookmark, Eye, FolderPlus, Heart, MessageCircle, MoreHorizontal, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { FeedPost } from "../feed.schema";
@@ -24,13 +24,17 @@ export const PostCard = memo(function PostCard({ post }: PostCardProps) {
   const { liked, toggle: toggleLike, isPending: likePending } = usePostLike(post.id);
   const { savedPostIds, toggleSave, isPending: savesPending } = useSaves();
   const saved = savedPostIds.includes(post.id);
+  const lastTap = useRef(0);
+  const [likedBurst, setLikedBurst] = useState(false);
+  const tapMedia = () => { const now = Date.now(); if (now - lastTap.current < 320 && !liked) { toggleLike(); setLikedBurst(true); window.setTimeout(() => setLikedBurst(false), 650); } lastTap.current = now; };
 
 
   return (
     <>
       <article className="post-card">
-        <img src={post.mediaUrl} alt={post.caption} className="post-media" loading="eager" decoding="async" fetchPriority="high" />
+        <img src={post.mediaUrl} alt={post.caption} className="post-media cursor-pointer" loading="eager" decoding="async" fetchPriority="high" onClick={tapMedia} />
         <div className="post-gradient" />
+        {likedBurst && <motion.div initial={{ scale: .4, opacity: 1 }} animate={{ scale: 1.45, opacity: 0 }} className="post-like-burst" aria-hidden="true"><Heart size={100} className="filled-heart" /></motion.div>}
         <div className="post-views"><Eye size={12} /><span>{post.viewCount.toLocaleString()}</span></div>
         <button className="post-more" aria-label="Post options" type="button" onClick={() => setModerationOpen(true)}><MoreHorizontal size={18} /></button>
 
