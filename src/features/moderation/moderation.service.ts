@@ -10,6 +10,14 @@ async function currentUserId(): Promise<string | null> {
   return user.id;
 }
 
+async function consumeRateLimit(scope: string, limit: number, windowSeconds: number): Promise<void> {
+  const { data, error } = await requireSupabase().schema("yunikov_v1").rpc("consume_rate_limit", {
+    p_scope: scope, p_limit: limit, p_window_seconds: windowSeconds,
+  });
+  if (error) throw error;
+  if (data !== true) throw new Error("Too many moderation actions. Please try again later.");
+}
+
 export async function getBlockedUserIds(): Promise<string[]> {
   const userId = await currentUserId();
   if (!userId) return [];
@@ -22,6 +30,7 @@ export async function blockUser(blockedId: string): Promise<void> {
   const userId = await currentUserId();
   if (!userId) throw new Error("Authentication required.");
   if (!blockedId || blockedId === userId) throw new Error("Invalid blocked user.");
+  await consumeRateLimit("moderation:block", 30, 60);
   const { error } = await requireYunikoDb().from("blocks").upsert(
     { blocker_id: userId, blocked_id: blockedId }, { onConflict: "blocker_id,blocked_id" },
   );
@@ -32,8 +41,7 @@ export async function unblockUser(blockedId: string): Promise<void> {
   const userId = await currentUserId();
   if (!userId) throw new Error("Authentication required.");
   if (!blockedId) throw new Error("Invalid blocked user.");
-  const { error } = await requireYunikoDb().from("blocks").delete()
-    .eq("blocker_id", userId).eq("blocked_id", blockedId);
+  const { error } = await requireYunikoDb().from("blocks").delete().eq("blocker_id", userId).eq("blocked_id", blockedId);
   if (error) throw error;
 }
 
@@ -44,6 +52,7 @@ export async function reportTarget(entityType: string, entityId: string, reason:
   const normalizedReason = reason.trim().slice(0, MAX_REASON_LENGTH);
   if (!ENTITY_TYPES.has(normalizedType) || !normalizedReason) throw new Error("Invalid report.");
   const normalizedEntityId = z.string().uuid().parse(entityId.trim());
+  await consumeRateLimit("moderation:report", 10, 3600);
   const { data, error } = await requireYunikoDb().from("reports").insert({
     reporter_id: userId, entity_type: normalizedType, entity_id: normalizedEntityId, reason: normalizedReason,
   }).select("id,reporter_id,entity_type,entity_id,reason,status,created_at").single();
