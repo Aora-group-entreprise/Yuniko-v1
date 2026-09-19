@@ -91,3 +91,8 @@
   .comment-line strong { max-width: 52%; }
   .comment-replies { margin-left: 32px; padding-left: 9px; }
 }
+
+/* Reference interaction styling */
+.comments-sheet,.share-sheet,.collections-sheet{box-shadow:0 -24px 70px rgba(0,0,0,.55)}
+.comment-thread{border-bottom:1px solid rgba(255,255,255,.035)}
+.comment-actions button:hover{color:#ff69ad}
