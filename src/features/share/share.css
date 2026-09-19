@@ -9,3 +9,6 @@
 .share-sheet-link { display: flex; align-items: center; gap: 8px; padding: 10px 4px 2px; color: rgba(255,255,255,.35); font-size: 11px; overflow: hidden; }
 .share-sheet-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width:520px) { .share-sheet { border-radius: 18px 18px 0 0; } }
+
+.share-sheet-actions>button{border:1px solid rgba(255,255,255,.06)}
+.share-sheet-actions>button:hover{border-color:rgba(255,0,110,.22);transform:translateY(-1px)}
