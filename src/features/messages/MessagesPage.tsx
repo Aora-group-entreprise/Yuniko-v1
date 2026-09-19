@@ -1,4 +1,4 @@
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Search, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { requireSupabase } from "../../lib/supabase";
@@ -12,7 +12,13 @@ const messagesKey = (id: string) => ["messages", "conversation", id] as const;
 
 export function MessagesPage({ onBack }: MessagesPageProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const query = useQuery({ queryKey: conversationsKey, queryFn: getConversations, staleTime: 10_000 });
+
+  const conversations = (query.data ?? []).filter((conversation) => {
+    const q = search.trim().toLowerCase();
+    return !q || conversation.participantName.toLowerCase().includes(q) || conversation.participantUsername.toLowerCase().includes(q);
+  });
 
   const selected = query.data?.find((conversation) => conversation.id === selectedId) ?? null;
   if (selected) {
@@ -25,17 +31,29 @@ export function MessagesPage({ onBack }: MessagesPageProps) {
   return <main className="messages-page yunikov1-page">
     <header className="messages-header">
       <button type="button" className="messages-back" aria-label="Back" onClick={onBack}><ArrowLeft size={21} /></button>
-      <div><h1>Messages</h1><p>Private conversations</p></div>
+      <div className="messages-title-wrap">
+        <h1>Messages</h1>
+        <p>Private conversations</p>
+      </div>
     </header>
+    <div className="messages-search">
+      <Search size={16} />
+      <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search messages" aria-label="Search messages" />
+    </div>
     <section className="messages-list yunikov1-list" aria-label="Conversations">
-      {query.isLoading ? <div className="feed-state">Loading messages…</div> : query.data?.map((conversation) => (
+      {query.isLoading ? <div className="feed-state">Loading messages…</div> : conversations.map((conversation) => (
         <button key={conversation.id} type="button" className="conversation-item" onClick={() => setSelectedId(conversation.id)}>
-          <img src={conversation.participantAvatarUrl} alt="" />
-          <span className="conversation-copy"><strong>{conversation.participantName}</strong><small>@{conversation.participantUsername}</small><span>{conversation.lastMessagePreview}</span></span>
+          <div className="conversation-avatar">
+            <img src={conversation.participantAvatarUrl} alt="" />
+          </div>
+          <span className="conversation-copy">
+            <span className="conversation-topline"><strong>{conversation.participantName}</strong><small>@{conversation.participantUsername}</small></span>
+            <span>{conversation.lastMessagePreview || "Start a conversation"}</span>
+          </span>
           {conversation.unreadCount > 0 && <b className="unread-count">{conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}</b>}
         </button>
       ))}
-      {!query.isLoading && !query.data?.length && <div className="feed-state">No conversations yet.</div>}
+      {!query.isLoading && !conversations.length && <div className="feed-state">{search ? "No matching conversations." : "No conversations yet."}</div>}
     </section>
   </main>;
 }
@@ -93,7 +111,7 @@ function ConversationView({ conversation, onBack }: { conversation: Conversation
   return <main className="messages-page conversation-page yunikov1-page">
     <header className="conversation-header">
       <button type="button" className="messages-back" aria-label="Back" onClick={onBack}><ArrowLeft size={21} /></button>
-      <img src={conversation.participantAvatarUrl} alt="" />
+      <div className="conversation-avatar"><img src={conversation.participantAvatarUrl} alt="" /></div>
       <div><strong>{conversation.participantName}</strong><small>@{conversation.participantUsername}</small></div>
     </header>
     <section className="message-thread" aria-label={`Conversation with ${conversation.participantName}`}>
