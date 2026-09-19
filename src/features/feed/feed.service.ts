@@ -1,6 +1,7 @@
 import { requireSupabase, requireYunikoDb } from "../../lib/supabase";
 import { chronologicalFeedSchema, type ChronologicalFeed, type FeedPost } from "./feed.schema";
 import { getBlockedUserIds } from "../moderation/moderation.service";
+import { getCachedCandidatePostIds } from "./candidate-generation.functions";
 
 export type FeedCursor = { createdAt: string; id: string } | null;
 export type FeedPage = ChronologicalFeed & { nextCursor: FeedCursor; hasMore: boolean };
@@ -62,6 +63,7 @@ export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> 
   if (viewerProfileError) throw viewerProfileError;
   const viewerCountry = typeof viewerProfile?.country_code === "string" ? viewerProfile.country_code.toUpperCase() : null;
   const seenCutoff = new Date(Date.now() - SEEN_WINDOW_DAYS * 86_400_000).toISOString();
+  const cachedCandidateIds = await getCachedCandidatePostIds({ data: { country: viewerCountry } });
 
   const { data: seenRows, error: seenError } = await db.from("seen_posts")
     .select("post_id").eq("user_id", userId).gte("seen_at", seenCutoff);
@@ -85,6 +87,7 @@ export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> 
     let q = db.from("posts").select(baseSelect).eq("status","ready").is("deleted_at",null)
       .order("created_at",{ascending:false}).order("id",{ascending:false}).limit(seed === "personalized" ? 60 : CANDIDATE_BATCH);
     if (seed === "personalized" && authorIds.length) q = q.in("author_id", authorIds);
+    if (seed === "global" && cachedCandidateIds.length) q = q.in("id", cachedCandidateIds);
     if (cursor) q = q.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
     if (seenIds.length) q = q.not("id","in",`(${seenIds.join(",")})`);
     return q;
