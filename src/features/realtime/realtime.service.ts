@@ -3,6 +3,11 @@ import { queryClient } from "../../lib/query-client";
 
 type RealtimeScope = "feed" | "notifications" | "stories" | "interactions" | `conversation:${string}`;
 
+type RealtimePayload = {
+  new?: { id?: unknown };
+  old?: { id?: unknown };
+};
+
 const activeCleanups = new Set<() => void>();
 const recentEventIds: string[] = [];
 const recentEventSet = new Set<string>();
@@ -16,6 +21,11 @@ function rememberEvent(id: string): boolean {
     if (oldest) recentEventSet.delete(oldest);
   }
   return true;
+}
+
+function payloadId(payload: RealtimePayload): string {
+  const id = payload.new?.id ?? payload.old?.id;
+  return typeof id === "string" || typeof id === "number" ? String(id) : crypto.randomUUID();
 }
 
 function invalidate(scope: RealtimeScope, kind: string): void {
@@ -39,7 +49,10 @@ function invalidate(scope: RealtimeScope, kind: string): void {
   }
 }
 
-function addChannel(name: string, setup: (channel: ReturnType<ReturnType<typeof requireSupabase>["channel"]>) => void): () => void {
+function addChannel(
+  name: string,
+  setup: (channel: ReturnType<ReturnType<typeof requireSupabase>["channel"]>) => void,
+): () => void {
   const client = requireSupabase();
   const channel = client.channel(name);
   setup(channel);
@@ -49,7 +62,11 @@ function addChannel(name: string, setup: (channel: ReturnType<ReturnType<typeof 
       setTimeout(() => { if (active) void channel.subscribe(); }, 1500);
     }
   });
-  const cleanup = () => { active = false; void client.removeChannel(channel); activeCleanups.delete(cleanup); };
+  const cleanup = () => {
+    active = false;
+    void client.removeChannel(channel);
+    activeCleanups.delete(cleanup);
+  };
   activeCleanups.add(cleanup);
   return cleanup;
 }
@@ -57,48 +74,54 @@ function addChannel(name: string, setup: (channel: ReturnType<ReturnType<typeof 
 export function subscribeToRealtime(): () => void {
   const cleanups: (() => void)[] = [];
   cleanups.push(addChannel("feed:global", channel => {
-    channel.on("postgres_changes",{event:"*",schema:"yunikov_v1",table:"posts"},payload => {
-      const id = String(payload.new?.id ?? payload.old?.id ?? crypto.randomUUID());
-      if (rememberEvent(id)) invalidate("feed","post");
+    channel.on("postgres_changes", { event: "*", schema: "yunikov_v1", table: "posts" }, (payload) => {
+      if (rememberEvent(payloadId(payload))) invalidate("feed", "post");
     });
   }));
   cleanups.push(addChannel("interactions:global", channel => {
-    for (const table of ["likes","comments","saves","shares","follows","blocks"]) {
-      channel.on("postgres_changes",{event:"*",schema:"yunikov_v1",table},payload => {
-        const id = String(payload.new?.id ?? payload.old?.id ?? crypto.randomUUID()) + ":" + table;
-        if (rememberEvent(id)) invalidate("interactions",table);
+    for (const table of ["likes", "comments", "saves", "shares", "follows", "blocks"]) {
+      channel.on("postgres_changes", { event: "*", schema: "yunikov_v1", table }, (payload) => {
+        const id = payloadId(payload) + ":" + table;
+        if (rememberEvent(id)) invalidate("interactions", table);
       });
     }
   }));
   cleanups.push(addChannel("stories:global", channel => {
-    channel.on("postgres_changes",{event:"*",schema:"yunikov_v1",table:"stories"},payload => {
-      const id = String(payload.new?.id ?? payload.old?.id ?? crypto.randomUUID());
-      if (rememberEvent(id)) invalidate("stories","story");
+    channel.on("postgres_changes", { event: "*", schema: "yunikov_v1", table: "stories" }, (payload) => {
+      if (rememberEvent(payloadId(payload))) invalidate("stories", "story");
     });
   }));
-  void requireSupabase().auth.getUser().then(({data}) => {
+  void requireSupabase().auth.getUser().then(({ data }) => {
     const userId = data.user?.id;
     if (!userId) return;
     const cleanup = addChannel("user:notifications:" + userId, channel => {
-      channel.on("postgres_changes",{event:"*",schema:"yunikov_v1",table:"notifications",filter:"recipient_id=eq."+userId},payload => {
-        const id = String(payload.new?.id ?? payload.old?.id ?? crypto.randomUUID());
-        if (rememberEvent(id)) invalidate("notifications","notification");
+      channel.on("postgres_changes", {
+        event: "*",
+        schema: "yunikov_v1",
+        table: "notifications",
+        filter: "recipient_id=eq." + userId,
+      }, (payload) => {
+        if (rememberEvent(payloadId(payload))) invalidate("notifications", "notification");
       });
     });
     cleanups.push(cleanup);
   }).catch(() => undefined);
-  const stopUser = () => {
+  return () => {
     for (const cleanup of [...cleanups]) cleanup();
   };
-  return stopUser;
 }
 
-export function subscribeToTable(table:string,filter:string|undefined,listener:()=>void) {
-  const channel=requireSupabase().channel(`realtime:${table}:${crypto.randomUUID()}`).on("postgres_changes",{event:"*",schema:"yunikov_v1",table,...(filter?{filter}:{})},listener);
+export function subscribeToTable(table: string, filter: string | undefined, listener: (payload: RealtimePayload) => void) {
+  const client = requireSupabase();
+  const channel = client.channel(`realtime:${table}:${crypto.randomUUID()}`).on(
+    "postgres_changes",
+    { event: "*", schema: "yunikov_v1", table, ...(filter ? { filter } : {}) },
+    listener,
+  );
   void channel.subscribe();
-  return () => { void requireSupabase().removeChannel(channel); };
+  return () => { void client.removeChannel(channel); };
 }
 
-export function subscribeToFeed(listener:()=>void) {
-  return subscribeToTable("posts",undefined,listener);
+export function subscribeToFeed(listener: (payload: RealtimePayload) => void) {
+  return subscribeToTable("posts", undefined, listener);
 }
