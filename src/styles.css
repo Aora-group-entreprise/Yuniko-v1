@@ -304,3 +304,38 @@ h1,h2,h3,.yuniko-wordmark,.profile-header-name,.settings-header strong,.security
 .bottom-nav,.feed-header,.stories-topbar,.settings-header,.security-header,.messages-header,.conversation-header{background:rgba(10,8,18,.88)!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;border-color:rgba(255,0,110,.12)!important}
 input,textarea,select{color:#fff!important}input::placeholder,textarea::placeholder{color:rgba(255,255,255,.32)!important}
 .light,.theme-light,[data-theme="light"]{background:#0d0b14!important;color:#fafafa!important}
+
+
+/* FINAL SCREEN PARITY POLISH */
+.messages-page,.search-page,.notifications-shell,.profile-shell,.settings-shell,.security-shell,.stories-page,.create-post-shell,.post-detail-scroll{min-height:100dvh}
+.messages-page,.search-page,.notifications-shell,.profile-shell,.settings-shell,.security-shell,.stories-page,.create-post-shell,.post-detail-scroll{padding-bottom:76px}
+.messages-header,.conversation-header,.settings-header,.security-header,.stories-topbar{min-height:56px;padding:0 14px;display:flex;align-items:center;gap:12px}
+.messages-header h1,.messages-header p{margin:0}.messages-header p{font-size:11px;color:rgba(255,255,255,.42)}
+.messages-back,.profile-header-button,.stories-back{width:40px;height:40px;border:0;border-radius:12px;background:transparent;color:rgba(255,255,255,.82);display:grid;place-items:center}
+.messages-back:hover,.profile-header-button:hover,.stories-back:hover{background:rgba(255,255,255,.06)}
+.messages-list,.search-page,.notifications-shell .notification-list{max-width:760px;margin:0 auto}
+.conversation-item{min-height:72px;border-radius:16px!important;margin:5px 10px!important;padding:10px 12px!important}
+.conversation-item>img,.conversation-header>img{width:46px;height:46px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,0,110,.22)}
+.message-thread{background:#0d0b14!important}
+.message-bubble{border-radius:18px!important;border:1px solid rgba(255,255,255,.07)!important;box-shadow:0 8px 25px rgba(0,0,0,.16)}
+.message-row.outgoing .message-bubble{background:var(--yu-grad)!important;color:#fff!important;border-color:transparent!important}
+.message-composer{background:rgba(10,8,18,.94)!important;border-top:1px solid rgba(255,0,110,.10)!important;backdrop-filter:blur(20px)}
+.message-composer textarea{background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:18px!important}
+.message-composer button{background:var(--yu-grad)!important;color:#fff!important;border:0!important;border-radius:50%!important}
+.search-page{padding:14px}
+.search-box{background:rgba(255,255,255,.055)!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:999px!important;padding:11px 14px!important}
+.search-profile,.search-post{border-radius:16px!important}
+.profile-header{background:rgba(10,8,18,.88)!important;backdrop-filter:blur(20px)!important;border-bottom:1px solid rgba(255,0,110,.10)!important}
+.profile-identity{text-align:center}
+.profile-avatar-ring{background:var(--yu-grad)!important;box-shadow:0 0 28px rgba(255,0,110,.20)}
+.profile-follow-placeholder{background:var(--yu-grad)!important;color:#fff!important;border:0!important;border-radius:999px!important}
+.profile-grid-header{background:rgba(255,255,255,.025)!important;border-color:rgba(255,255,255,.06)!important}
+.profile-grid-item{border-color:#0d0b14!important}
+.story-viewer{background:#000!important}
+.story-progress span.filled{background:#fff!important}
+.story-author{background:linear-gradient(180deg,rgba(0,0,0,.65),transparent)!important}
+.story-create-panel{margin:16px!important;border-radius:22px!important;padding:18px!important}
+.create-post-header{background:rgba(10,8,18,.92)!important;border-bottom:1px solid rgba(255,0,110,.10)!important;backdrop-filter:blur(20px)}
+.create-post-publish{background:var(--yu-grad)!important;color:#fff!important;border:0!important;border-radius:999px!important;padding:9px 15px!important}
+.add-media-tile{background:rgba(255,255,255,.035)!important;border:1px dashed rgba(255,0,110,.32)!important;border-radius:18px!important}
+.post-detail-scroll{background:#0d0b14!important}
