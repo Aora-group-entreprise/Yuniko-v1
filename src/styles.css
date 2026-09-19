@@ -339,3 +339,36 @@ input,textarea,select{color:#fff!important}input::placeholder,textarea::placehol
 .create-post-publish{background:var(--yu-grad)!important;color:#fff!important;border:0!important;border-radius:999px!important;padding:9px 15px!important}
 .add-media-tile{background:rgba(255,255,255,.035)!important;border:1px dashed rgba(255,0,110,.32)!important;border-radius:18px!important}
 .post-detail-scroll{background:#0d0b14!important}
+
+
+/* SHEETS / MODERATION VISUAL CONSISTENCY */
+.comments-sheet,.share-sheet,.collections-sheet,.post-edit-sheet,.post-delete-sheet,.moderation-sheet{
+  background:#120e1e!important;
+  color:#fafafa!important;
+  border-color:rgba(255,255,255,.08)!important;
+  box-shadow:0 -24px 70px rgba(0,0,0,.55)!important;
+}
+.comments-sheet-backdrop,.share-sheet-backdrop,.collections-sheet-backdrop,.post-edit-backdrop,.post-delete-backdrop,.moderation-backdrop{
+  background:rgba(0,0,0,.66)!important;
+  backdrop-filter:blur(8px)!important;
+  -webkit-backdrop-filter:blur(8px)!important;
+}
+.comments-input-row,.collection-create input,.post-edit-content textarea,.moderation-report-form select,.moderation-report-form textarea{
+  background:rgba(255,255,255,.045)!important;
+  color:#fafafa!important;
+  border-color:rgba(255,255,255,.10)!important;
+}
+.share-sheet-actions>button,.collection-row,.moderation-action{
+  background:rgba(255,255,255,.045)!important;
+  color:rgba(255,255,255,.88)!important;
+  border-color:rgba(255,255,255,.07)!important;
+}
+.share-sheet-actions>button:hover,.collection-row:hover,.moderation-action:hover{
+  background:rgba(255,255,255,.08)!important;
+  border-color:rgba(255,0,110,.22)!important;
+}
+.post-delete-confirm,.moderation-submit{background:var(--yu-grad)!important;color:#fff!important}
+.post-delete-cancel,.moderation-cancel,.moderation-close{background:rgba(255,255,255,.07)!important;color:rgba(255,255,255,.82)!important;border-color:rgba(255,255,255,.08)!important}
+.moderation-sheet{border-radius:22px 22px 16px 16px!important}
+.moderation-header span,.moderation-report-form label span,.moderation-success p{color:rgba(255,255,255,.45)!important}
+.moderation-report-form label{color:rgba(255,255,255,.78)!important}
