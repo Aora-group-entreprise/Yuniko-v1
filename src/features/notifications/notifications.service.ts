@@ -66,7 +66,7 @@ export async function markAllNotificationsRead(): Promise<void> {
 }
 
 export function notificationTypeLabel(type: NotificationType): string {
-  return ({like:"J’aime",comment:"Commentaire",reply:"Réponse",save:"Enregistrement",share:"Partage",follow:"Abonnement",follow_request:"Demande"} as Record<NotificationType,string>)[type];
+  return ({like:"J’aime",comment:"Commentaire",reply:"Réponse",save:"Enregistrement",share:"Partage",follow:"Abonnement",follow_request:"Demande",message:"Message"} as Record<NotificationType,string>)[type];
 }
 
 export function subscribeToNotifications(listener: () => void): () => void {
