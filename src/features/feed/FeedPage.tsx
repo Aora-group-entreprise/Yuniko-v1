@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Bell, ChevronDown, Globe, Hash, MessageCircle, Plus, Search, UserPlus, UserRound, WifiOff } from "lucide-react";
+import { Bell, ChevronDown, Globe, Hash, Home as HomeIcon, MessageCircle, Plus, Search, UserPlus, UserRound, WifiOff } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { useSessionStore } from "../../stores/sessionStore";
 import { getFeedPage, markPostsSeen } from "./feed.service";
 import { getAlgorithmicFeed } from "./feed-ranking.service";
