@@ -1,11 +1,18 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...corsHeaders } });
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
 
   try {
     const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
