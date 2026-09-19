@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Camera, Eye, EyeOff, Globe, Lock, User, Users } from "lucide-react";
-import { FormEvent, ReactNode, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useMemo, useRef, useState } from "react";
 import { resetPassword, signIn, signUp } from "./auth.service";
 import { getCountryOptions } from "./countries";
+import { uploadMyAvatar } from "../profile/profile.service";
 
 const GRADIENT = "linear-gradient(135deg,#ff006e,#8b00ff)";
 
@@ -17,9 +18,13 @@ export function AuthPage({ onAuthenticated }: { onAuthenticated: () => void }) {
   const [name, setName] = useState("");
   const [country, setCountry] = useState("");
   const [age, setAge] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const countryOptions = useMemo(() => getCountryOptions(), []);
 
   function resetError() { setError(""); }
@@ -48,11 +53,19 @@ export function AuthPage({ onAuthenticated }: { onAuthenticated: () => void }) {
     setBusy(true);
     try {
       const result = await signUp({ username, password, confirmPassword, displayName: name, country, age: age ? Number(age) : undefined });
+      if (avatarFile) await uploadMyAvatar(avatarFile);
       if (result.session) onAuthenticated();
       else setError("Account created. Please sign in.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create your account.");
     } finally { setBusy(false); }
+  }
+
+  function chooseAvatar(file: File | undefined) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Profile photo must be JPEG, PNG, or WebP."); return; }
+    if (file.size > 5 * 1024 * 1024) { setError("Profile photo must be smaller than 5 MB."); return; }
+    setAvatarFile(file); setAvatarPreview(URL.createObjectURL(file)); resetError();
   }
 
   async function submitReset(event: FormEvent) {
@@ -85,9 +98,9 @@ export function AuthPage({ onAuthenticated }: { onAuthenticated: () => void }) {
 
           {mode === "signup" && <motion.div key={`signup-${step}`} className="auth-form" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}>
             <div className="auth-step-head"><button type="button" onClick={() => step === 1 ? setMode("signin") : setStep(step - 1)}><ArrowLeft size={20} /></button><div className="auth-progress">{[1,2,3].map((n) => <span key={n} className={n <= step ? "active" : ""} style={n <= step ? { background: GRADIENT } : undefined} />)}</div><span className="auth-spacer" /></div>
-            {step === 1 && <><h2>Create account</h2><p className="auth-subtitle">Choose your Yuniko identity</p><div className="auth-fields"><Field icon={<span>@</span>} value={username} onChange={setUsername} placeholder="username" /><Field icon={<Lock size={18} />} value={password} onChange={setPassword} placeholder="Password (min 6 characters)" type="password" /><Field icon={<Lock size={18} />} value={confirmPassword} onChange={setConfirmPassword} placeholder="Confirm password" type="password" /></div><button type="button" className="auth-primary" onClick={() => void continueSignup()}>Continue <ArrowRight size={16} /></button></>}
+            {step === 1 && <><h2>Create account</h2><p className="auth-subtitle">Choose your Yuniko identity</p><div className="auth-fields"><Field icon={<span>@</span>} value={username} onChange={setUsername} placeholder="username" /><Field icon={<Lock size={18} />} value={password} onChange={setPassword} placeholder="Password (min 6 characters)" type={showPw ? "text" : "password"} suffix={<button type="button" aria-label={showPw ? "Hide password" : "Show password"} onClick={() => setShowPw((v) => !v)}>{showPw ? <EyeOff size={16} /> : <Eye size={16} />}</button>} /><Field icon={<Lock size={18} />} value={confirmPassword} onChange={setConfirmPassword} placeholder="Confirm password" type={showConfirmPw ? "text" : "password"} suffix={<button type="button" aria-label={showConfirmPw ? "Hide password" : "Show password"} onClick={() => setShowConfirmPw((v) => !v)}>{showConfirmPw ? <EyeOff size={16} /> : <Eye size={16} />}</button>} /></div><button type="button" className="auth-primary" onClick={() => void continueSignup()}>Continue <ArrowRight size={16} /></button></>}
             {step === 2 && <><h2>About you</h2><p className="auth-subtitle">Help others find and know you</p><div className="auth-fields"><Field icon={<User size={18} />} value={name} onChange={setName} placeholder="Display name" /><label className="auth-field auth-country-field"><Globe size={18} /><select value={country} onChange={(event) => setCountry(event.target.value)} aria-label="Country"><option value="">Choose your country</option>{countryOptions.map((item) => <option key={item.code} value={item.code}>{item.flag} {item.getName(navigator.language)}</option>)}</select></label><Field icon={<Users size={18} />} value={age} onChange={setAge} placeholder="Your age" type="number" /></div><button type="button" className="auth-primary" onClick={() => void continueSignup()}>Continue <ArrowRight size={16} /></button></>}
-            {step === 3 && <><h2>Add your photo</h2><p className="auth-subtitle">Help people recognize you</p><div className="auth-photo-placeholder"><Camera size={28} /></div><button type="button" className="auth-primary" disabled={busy} onClick={() => void continueSignup()}>{busy ? "Creating..." : "Create Account"} <ArrowRight size={16} /></button><button type="button" className="auth-skip" disabled={busy} onClick={() => void continueSignup()}>Skip for now</button></>}
+            {step === 3 && <><h2>Add your photo</h2><p className="auth-subtitle">Help people recognize you</p><button type="button" className="auth-photo-placeholder" onClick={() => avatarInputRef.current?.click()} disabled={busy} aria-label="Choose profile photo">{avatarPreview ? <img src={avatarPreview} alt="Selected profile" /> : <Camera size={28} />}</button><input ref={avatarInputRef} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { chooseAvatar(event.target.files?.[0]); event.currentTarget.value = ""; }} />{avatarFile && <p className="auth-subtitle">Photo selected. It will be uploaded when the account is created.</p>}<button type="button" className="auth-primary" disabled={busy} onClick={() => void continueSignup()}>{busy ? "Creating..." : "Create Account"} <ArrowRight size={16} /></button><button type="button" className="auth-skip" disabled={busy} onClick={() => void continueSignup()}>Skip for now</button></>}
             {error && <p className="auth-error">{error}</p>}
           </motion.div>}
 
