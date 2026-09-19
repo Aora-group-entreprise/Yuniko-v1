@@ -1,110 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, Copy, KeyRound, LogOut, ShieldCheck, Smartphone, XCircle } from "lucide-react";
-import {
-  disableTwoFactor,
-  enableTwoFactor,
-  getLoginEvents,
-  getSecurityState,
-  getSessions,
-  regenerateRecoveryCodes,
-  revokeSession,
-  subscribeToSecurityChanges,
-  type LoginEvent,
-  type SecurityState,
-  type Session,
-} from "./security.service";
-
-export function SecurityPage({ onBack }: { onBack: () => void }) {
-  const [security, setSecurity] = useState<SecurityState>(() => getSecurityState());
-  const [sessions, setSessions] = useState<Session[]>(() => getSessions());
-  const [events, setEvents] = useState<LoginEvent[]>(() => getLoginEvents());
-  const [showCodes, setShowCodes] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const refresh = () => {
-    setSecurity(getSecurityState());
-    setSessions(getSessions());
-    setEvents(getLoginEvents());
-  };
-
-  useEffect(() => subscribeToSecurityChanges(refresh), []);
-
-  const recoveryText = useMemo(() => security.recoveryCodes.join("\n"), [security.recoveryCodes]);
-
-  async function copyRecoveryCodes() {
-    if (!recoveryText || !navigator.clipboard) return;
-    await navigator.clipboard.writeText(recoveryText);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1400);
-  }
-
-  function toggleTwoFactor() {
-    const next = security.twoFactorEnabled ? disableTwoFactor() : enableTwoFactor();
-    setSecurity(next);
-    setShowCodes(next.twoFactorEnabled);
-  }
-
-  function regenerateCodes() {
-    const codes = regenerateRecoveryCodes();
-    setSecurity(getSecurityState());
-    setShowCodes(true);
-    if (navigator.clipboard) void navigator.clipboard.writeText(codes.join("\n"));
-  }
-
-  return (
-    <main className="security-shell">
-      <header className="security-header">
-        <button type="button" className="security-header-button" aria-label="Back to feed" onClick={onBack}><ArrowLeft size={21} /></button>
-        <div><strong>Security</strong><span>Account protection</span></div>
-        <ShieldCheck size={21} aria-hidden="true" />
-      </header>
-
-      <section className="security-scroll">
-        <div className="security-prototype-note">
-          <ShieldCheck size={18} />
-          <div><strong>Frontend security prototype</strong><p>These controls are local to this device for now. Real authentication and server-side security will be connected later.</p></div>
-        </div>
-
-        <section className="security-card">
-          <div className="security-card-heading"><div className="security-icon"><KeyRound size={19} /></div><div><h2>Two-factor authentication</h2><p>Add a second verification step to the account.</p></div></div>
-          <div className="security-row">
-            <div><strong>{security.twoFactorEnabled ? "Enabled" : "Disabled"}</strong><span>{security.twoFactorEnabled ? "Recovery codes are available." : "Not configured on this prototype."}</span></div>
-            <button type="button" className={`security-toggle ${security.twoFactorEnabled ? "on" : ""}`} onClick={toggleTwoFactor} aria-pressed={security.twoFactorEnabled}>{security.twoFactorEnabled ? "Turn off" : "Enable"}</button>
-          </div>
-          {security.twoFactorEnabled && <div className="recovery-area">
-            <button type="button" className="security-secondary-button" onClick={() => setShowCodes((value) => !value)}>{showCodes ? "Hide recovery codes" : "Show recovery codes"}</button>
-            <button type="button" className="security-secondary-button" onClick={regenerateCodes}>Regenerate</button>
-            {showCodes && <div className="recovery-codes" aria-label="Recovery codes">{security.recoveryCodes.map((code: string) => <code key={code}>{code}</code>)}</div>}
-            {showCodes && <button type="button" className="security-copy-button" onClick={() => void copyRecoveryCodes()}><Copy size={15} />{copied ? "Copied" : "Copy codes"}</button>}
-          </div>}
-        </section>
-
-        <section className="security-card">
-          <div className="security-card-heading"><div className="security-icon"><Smartphone size={19} /></div><div><h2>Active sessions</h2><p>Devices currently associated with this local prototype.</p></div></div>
-          <div className="security-list">
-            {sessions.length === 0 && <div className="security-empty">No session recorded yet.</div>}
-            {sessions.map((session) => <div className="security-list-row" key={session.id}>
-              <div className="security-list-main"><Smartphone size={17} /><div><strong>{session.deviceLabel}</strong><span>Last seen {formatDate(session.lastSeenAt)}</span></div></div>
-              {session.current ? <span className="current-badge"><CheckCircle2 size={14} />Current</span> : <button type="button" className="revoke-button" onClick={() => { revokeSession(session.id); refresh(); }}><LogOut size={14} />Revoke</button>}
-            </div>)}
-          </div>
-        </section>
-
-        <section className="security-card">
-          <div className="security-card-heading"><div className="security-icon"><ShieldCheck size={19} /></div><div><h2>Recent login activity</h2><p>Local login events recorded by this prototype.</p></div></div>
-          <div className="security-list">
-            {events.length === 0 && <div className="security-empty">No login events recorded yet.</div>}
-            {[...events].reverse().slice(0, 8).map((event) => <div className="security-list-row" key={event.id}>
-              <div className="security-list-main">{event.success ? <CheckCircle2 size={17} /> : <XCircle size={17} />}<div><strong>{event.deviceLabel}</strong><span>{event.countryCode} · {formatDate(event.createdAt)}</span></div></div>
-              <span className={`login-status ${event.success ? "success" : "failed"}`}>{event.success ? "Success" : "Failed"}</span>
-            </div>)}
-          </div>
-        </section>
-      </section>
-    </main>
-  );
+import { useEffect,useMemo,useState } from "react";
+import { ArrowLeft,CheckCircle2,KeyRound,LogOut,ShieldCheck,Smartphone,XCircle } from "lucide-react";
+import { beginTwoFactorEnrollment,disableTwoFactor,getLoginEvents,getSecurityState,getSessions,revokeOtherSessions,verifyTwoFactor,type LoginEvent,type SecurityState,type Session } from "./security.service";
+export function SecurityPage({onBack}:{onBack:()=>void}){
+ const [security,setSecurity]=useState<SecurityState|null>(null),[sessions,setSessions]=useState<Session[]>([]),[events,setEvents]=useState<LoginEvent[]>([]),[setup,setSetup]=useState<{factorId:string;qrCode:string;secret:string}|null>(null),[code,setCode]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const refresh=async()=>{try{setSecurity(await getSecurityState());setSessions(await getSessions());setEvents(await getLoginEvents());}catch(e){setError(e instanceof Error?e.message:"Unable to load security data.");}};
+ useEffect(()=>{void refresh();},[]);
+ const qr=useMemo(()=>setup?.qrCode?"data:image/svg+xml;utf8,"+encodeURIComponent(setup.qrCode):"",[setup]);
+ async function enable(){setBusy(true);setError("");try{setSetup(await beginTwoFactorEnrollment());}catch(e){setError(e instanceof Error?e.message:"Unable to start 2FA.");}finally{setBusy(false);}}
+ async function verify(){if(!setup||code.length<6)return;setBusy(true);setError("");try{await verifyTwoFactor(setup.factorId,code);setSetup(null);setCode("");await refresh();}catch(e){setError(e instanceof Error?e.message:"Invalid verification code.");}finally{setBusy(false);}}
+ async function disable(){setBusy(true);setError("");try{await disableTwoFactor();await refresh();}catch(e){setError(e instanceof Error?e.message:"Unable to disable 2FA.");}finally{setBusy(false);}}
+ async function revoke(){setBusy(true);setError("");try{await revokeOtherSessions();await refresh();}catch(e){setError(e instanceof Error?e.message:"Unable to revoke other sessions.");}finally{setBusy(false);}}
+ return <main className="security-shell"><header className="security-header"><button type="button" className="security-header-button" aria-label="Back to feed" onClick={onBack}><ArrowLeft size={21}/></button><div><strong>Security</strong><span>Account protection</span></div><ShieldCheck size={21}/></header><section className="security-scroll">{error&&<div className="security-info">{error}</div>}
+ <section className="security-card"><div className="security-card-heading"><div className="security-icon"><KeyRound size={19}/></div><div><h2>Two-factor authentication</h2><p>Protected by Supabase Auth TOTP MFA.</p></div></div><div className="security-row"><div><strong>{security?.twoFactorEnabled?"Enabled":"Disabled"}</strong><span>{security?.twoFactorEnabled?"Authenticator factor is verified.":"Add an authenticator app as a second factor."}</span></div>{security?.twoFactorEnabled?<button type="button" className="security-toggle on" disabled={busy} onClick={()=>void disable()}>Turn off</button>:<button type="button" className="security-toggle" disabled={busy} onClick={()=>void enable()}>Enable</button>}</div>{setup&&<div className="recovery-area"><p>Scan the QR code with an authenticator app, then enter the 6-digit code.</p>{qr&&<img src={qr} alt="Authenticator setup QR code" style={{width:190,height:190,background:"white"}}/>}<code>{setup.secret}</code><input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="123456" aria-label="Authenticator code"/><button type="button" className="security-copy-button" disabled={busy||code.length<6} onClick={()=>void verify()}>Verify and enable</button></div>}</section>
+ <section className="security-card"><div className="security-card-heading"><div className="security-icon"><Smartphone size={19}/></div><div><h2>Active sessions</h2><p>Sessions are read from Supabase Auth.</p></div></div><div className="security-list">{sessions.length===0&&<div className="security-empty">No active session data.</div>}{sessions.map(s=><div className="security-list-row" key={s.id}><div className="security-list-main"><Smartphone size={17}/><div><strong>{s.deviceLabel}</strong><span>Last seen {formatDate(s.lastSeenAt)} · {s.ip??"IP unavailable"}</span></div></div>{s.current?<span className="current-badge"><CheckCircle2 size={14}/>Current</span>:null}</div>)}</div><button type="button" className="security-secondary-button" disabled={busy||sessions.length<2} onClick={()=>void revoke()}><LogOut size={15}/>Sign out other sessions</button></section>
+ <section className="security-card"><div className="security-card-heading"><div className="security-icon"><ShieldCheck size={19}/></div><div><h2>Recent login activity</h2><p>Stored in the canonical database.</p></div></div><div className="security-list">{events.length===0&&<div className="security-empty">No login events recorded yet.</div>}{events.map(e=><div className="security-list-row" key={e.id}><div className="security-list-main">{e.success?<CheckCircle2 size={17}/>:<XCircle size={17}/>}<div><strong>{e.deviceLabel}</strong><span>{e.countryCode} · {formatDate(e.createdAt)}</span></div></div><span className={"login-status "+(e.success?"success":"failed")}>{e.success?"Success":"Failed"}</span></div>)}</div></section>
+ </section></main>;
 }
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-}
+function formatDate(value:string){return new Intl.DateTimeFormat("en",{dateStyle:"medium",timeStyle:"short"}).format(new Date(value));}
