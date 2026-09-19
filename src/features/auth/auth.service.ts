@@ -1,5 +1,6 @@
 import { requireSupabase } from "../../lib/supabase";
 import { resetPasswordInputSchema, signInInputSchema, signUpInputSchema, type ResetPasswordInput, type SignInInput, type SignUpInput } from "./auth.schema";
+import { recordLoginEvent } from "../security/security.service";
 
 const functionUrl = (name: string) => `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${name}`;
 
@@ -11,6 +12,7 @@ export async function signIn(input: SignInInput) {
   if (identifier.includes("@")) {
     const { data, error } = await client.auth.signInWithPassword({ email: identifier, password: parsed.password });
     if (error) throw error;
+    await recordLoginEvent(true, typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 180) : "This device");
     return data;
   }
 
@@ -27,6 +29,7 @@ export async function signIn(input: SignInInput) {
     refresh_token: payload.refresh_token,
   });
   if (error) throw error;
+  await recordLoginEvent(true, typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 180) : "This device");
   return data;
 }
 
