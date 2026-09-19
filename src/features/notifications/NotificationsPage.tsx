@@ -27,8 +27,8 @@ export function NotificationsPage({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <main className="feed-shell">
-      <header className="feed-header">
+    <main className="feed-shell notifications-shell">
+      <header className="feed-header notifications-header">
         <button type="button" className="yuniko-wordmark" onClick={onBack}>Yuniko</button>
         <strong>Notifications</strong>
         <button type="button" aria-label="Mark all as read" onClick={markAll} disabled={!unread}><CheckCheck size={20} /></button>
