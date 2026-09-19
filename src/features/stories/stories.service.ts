@@ -70,6 +70,8 @@ export async function markStoryViewed(storyId: string): Promise<void> {
     { onConflict: "story_id,viewer_id" },
   );
   if (error) throw error;
+  const { error: eventError } = await requireSupabase().schema("yunikov_v1").rpc("record_story_view_atomic", { p_story_id: id });
+  if (eventError) throw eventError;
 }
 
 export async function createStory(file: File, caption = ""): Promise<Story> {
