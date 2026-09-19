@@ -115,3 +115,89 @@ img { display:block; max-width:100%; }
 /* Keep selected profile photos fitted inside the circular picker. */
 .auth-photo-placeholder { overflow:hidden; }
 .auth-photo-placeholder img { width:100%; height:100%; display:block; object-fit:cover; border-radius:50%; }
+
+
+/* Yunikov1.0.0 COMPLETE VISUAL MERGE LAYER
+   Applies the reference visual language to every interactive surface while
+   leaving Yuniko-v1 data/services/state untouched. */
+:root{
+  --yu-surface:rgba(255,255,255,.055);
+  --yu-surface-strong:rgba(255,255,255,.085);
+  --yu-border:rgba(255,255,255,.10);
+  --yu-border-hot:rgba(255,0,110,.24);
+  --yu-text:rgba(255,255,255,.92);
+  --yu-muted:rgba(255,255,255,.48);
+  --yu-gradient:linear-gradient(135deg,#ff006e 0%,#c026d3 48%,#8b00ff 100%);
+  --yu-shadow:0 18px 55px rgba(0,0,0,.38);
+}
+
+button,a,input,textarea,select{transition:background .18s ease,border-color .18s ease,color .18s ease,opacity .18s ease,transform .18s ease,box-shadow .18s ease}
+button:active,[role="button"]:active{transform:scale(.97)}
+input:focus,textarea:focus,select:focus{border-color:rgba(255,0,110,.42)!important;box-shadow:0 0 0 3px rgba(255,0,110,.08)}
+
+.post-card{
+  border:1px solid rgba(255,255,255,.07);
+  box-shadow:var(--yu-shadow);
+}
+.post-card::after{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);
+}
+.post-action{position:relative}
+.post-action:hover{color:#fff}
+.post-action:hover svg{filter:drop-shadow(0 5px 14px rgba(255,0,110,.28))}
+.post-action small{min-width:24px;text-align:center}
+.filled-heart{fill:#ff3d72;color:#ff3d72;filter:drop-shadow(0 4px 12px rgba(255,0,110,.4))}
+.filled-save{fill:#ffd166;color:#ffd166;filter:drop-shadow(0 4px 12px rgba(255,209,102,.25))}
+.post-views,.post-more{
+  position:absolute;z-index:12;display:flex;align-items:center;gap:5px;
+  border:1px solid rgba(255,255,255,.08);background:rgba(10,8,18,.48);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+}
+.post-views{top:12px;left:12px;padding:6px 9px;border-radius:999px;color:rgba(255,255,255,.75);font-size:10px}
+.post-more{top:12px;right:12px;width:34px;height:34px;justify-content:center;border-radius:50%;color:rgba(255,255,255,.78)}
+.post-more:hover{background:rgba(255,255,255,.10);border-color:rgba(255,0,110,.28)}
+
+.notification-list,.search-page,.messages-page,.conversation-page{
+  scrollbar-width:thin;scrollbar-color:rgba(255,0,110,.25) transparent;
+}
+.notification-item,.search-profile,.search-post,.conversation-item{
+  border:1px solid transparent;
+}
+.notification-item:hover,.notification-item.unread,
+.search-profile:hover,.search-post:hover,.conversation-item:hover{
+  background:var(--yu-surface-strong);border-color:var(--yu-border);
+  transform:translateY(-1px);
+}
+.notification-icon{box-shadow:0 5px 16px rgba(255,0,110,.28)}
+.search-box:focus-within{border-color:var(--yu-border-hot);background:rgba(255,255,255,.085);box-shadow:0 10px 35px rgba(0,0,0,.2)}
+
+.bottom-nav{
+  box-shadow:0 -12px 35px rgba(0,0,0,.18);
+}
+.nav-item{position:relative}
+.nav-item.active::after{
+  content:"";position:absolute;bottom:4px;width:5px;height:5px;border-radius:50%;
+  background:#ff3d9a;box-shadow:0 0 12px rgba(255,0,110,.7);
+}
+.create-button{border:1px solid rgba(255,255,255,.16);box-shadow:0 8px 30px rgba(139,0,255,.42),inset 0 1px 0 rgba(255,255,255,.22)}
+.create-button:hover{transform:translateY(-2px) scale(1.03)}
+
+.skeleton{background:linear-gradient(90deg,rgba(255,255,255,.045),rgba(255,255,255,.11),rgba(255,255,255,.045));background-size:220% 100%;animation:yu-skeleton 1.4s infinite}
+@keyframes yu-skeleton{to{background-position:-220% 0}}
+
+.auth-primary,.collection-create button{background:var(--yu-gradient)}
+.auth-primary:hover,.collection-create button:hover{box-shadow:0 8px 28px rgba(255,0,110,.25);transform:translateY(-1px)}
+.auth-tabs button.active{box-shadow:0 7px 22px rgba(255,0,110,.2)}
+
+.profile-editor label input,.profile-editor label textarea,
+.collection-create input,.comments-input-row,.search-box{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+
+@media(max-width:520px){
+  .post-action{min-width:38px}
+  .post-actions{gap:14px}
+  .post-views{top:10px;left:10px}
+  .post-more{top:10px;right:10px}
+}
