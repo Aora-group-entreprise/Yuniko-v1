@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Camera, Save } from "lucide-react";
 import { getMyProfile, updateMyProfile, uploadMyAvatar, type ProfileUpdateInput } from "./profile.service";
+import { getCountryOptions } from "../auth/countries";
 import type { MyProfile } from "./profile.schema";
 
 const EMPTY_FORM: ProfileUpdateInput = {
@@ -19,6 +20,7 @@ export function ProfileEditor({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const countryOptions = getCountryOptions();
 
   useEffect(() => {
     let active = true;
