@@ -67,31 +67,38 @@ export function ProfilePage({ onBack, onOpenPost, profileId }: { onBack: () => v
   }
 
   return (
-    <main className="profile-shell yunikov1-profile">
-      <header className="profile-header">
-        <button type="button" className="profile-header-button" aria-label="Back to feed" onClick={onBack}><ArrowLeft size={21} /></button>
-        <span className="profile-header-name">{data.username}</span>
-        <button type="button" className="profile-header-button" aria-label="More profile options" onClick={() => setModerationOpen(true)}><MoreHorizontal size={22} /></button>
+    <main className="w-full min-h-screen bg-[#0d0b14] text-white pb-20">
+      <header className="sticky top-0 z-40 px-4 py-4 flex items-center gap-3 glass border-b border-white/[.06]">
+        <button type="button" aria-label="Back" onClick={onBack}><ArrowLeft size={22} className="text-white/80" /></button>
+        <h1 className="text-base font-semibold flex-1">@{data.username}</h1>
+        <button type="button" aria-label="More" onClick={() => setModerationOpen(true)}><MoreHorizontal size={22} className="text-white/80" /></button>
       </header>
-      <section className="profile-scroll">
-        <div className="profile-identity">
-          <div className="profile-avatar-ring"><img src={data.avatarUrl ?? ""} alt="" /></div>
-          <h1>{data.displayName}</h1>
-          <p className="profile-username">@{data.username}</p>
-          {data.country && <p className="profile-country">{data.country}</p>}
-          <p className="profile-bio">{data.bio}</p>
-          <div className="profile-stats" aria-label="Profile statistics"><Stat value={data.postCount} label="Posts" /><button type="button" className="profile-stat-button" onClick={() => setListView("followers")}><Stat value={followers} label="Followers" /></button><button type="button" className="profile-stat-button" onClick={() => setListView("following")}><Stat value={data.followingCount} label="Following" /></button></div>
-          <button type="button" className="profile-follow-placeholder" disabled={isPending} onClick={handleFollow} aria-busy={isPending}>{isFollowing ? "Following" : isRequested ? "Requested" : "Follow"}</button>
-          {data.isPrivate && <button type="button" className="profile-requests-button" onClick={() => setListView("requests")}><Users size={15} /> Follow requests</button>}
+      <div className="h-32" style={{ background: "linear-gradient(135deg,#FF006E 0%,#8B00FF 100%)" }} />
+      <div className="px-4 relative">
+        <div className="flex items-end justify-between -mt-9 mb-3">
+          <div className="w-[76px] h-[76px] rounded-full p-[3px]" style={{background:"linear-gradient(135deg,#FF006E 0%,#8B00FF 100%)"}}><img src={data.avatarUrl ?? ""} alt="" className="w-full h-full rounded-full object-cover border-2 border-[#0d0b14]" /></div>
+          {!isPending && followStatus !== "self" && <button type="button" onClick={() => void handleFollow()} className="px-5 py-2 rounded-xl text-sm font-semibold" style={{ background: isFollowing ? "rgba(255,255,255,.1)" : "linear-gradient(135deg,#FF006E 0%,#8B00FF 100%)" }}>{isFollowing ? "Following" : isRequested ? "Requested" : "Follow"}</button>}
         </div>
-        <div className="profile-grid-header"><Grid3X3 size={18} /><span>Posts</span></div>
-        <div className="profile-grid" aria-label={`${data.displayName}'s posts`}>{data.posts.map((post) => <button key={post.id} type="button" className="profile-grid-item" aria-label={`Open post: ${post.caption}`} onClick={() => onOpenPost(post.id)}><img src={post.mediaUrl} alt="" loading="lazy" /></button>)}</div>
-      </section>
-      <nav className="bottom-nav profile-bottom-nav" aria-label="Primary navigation"><button type="button" className="nav-item" aria-label="Home" onClick={onBack}><span>⌂</span><small>Home</small></button><button type="button" className="nav-item" aria-label="Alerts"><span>◌</span><small>Alerts</small></button><button type="button" className="create-button" aria-label="Create"><span>+</span></button><button type="button" className="nav-item" aria-label="Messages"><span>◍</span><small>Messages</small></button><button type="button" className="nav-item active" aria-label="Profile"><span><UserRound size={21} /></span><small>Profile</small></button></nav>
+        <div className="mb-4">
+          <div className="flex items-center gap-1"><h2 className="font-bold text-base">{data.displayName}</h2></div>
+          <p className="text-white/50 text-sm">@{data.username}</p>
+          <p className="text-white/80 text-sm mt-2">{data.bio}</p>
+          {data.country && <p className="text-white/45 text-xs mt-2">{data.country}</p>}
+        </div>
+        <div className="flex rounded-2xl mb-4 overflow-hidden bg-white/[.04] border border-white/[.07]">
+          <Stat value={data.postCount} label="Posts" />
+          <button type="button" onClick={() => setListView("followers")} className="flex-1 py-3 border-r border-white/[.07]"><b className="block">{formatCount(followers)}</b><span className="text-white/45 text-xs">Followers</span></button>
+          <button type="button" onClick={() => setListView("following")} className="flex-1 py-3"><b className="block">{formatCount(data.followingCount)}</b><span className="text-white/45 text-xs">Following</span></button>
+        </div>
+        <div className="flex border-b border-white/5 mb-2"><button type="button" aria-label="Posts" className="flex-1 py-3 text-pink-400"><Grid3X3 size={18} className="mx-auto" /></button></div>
+        {data.posts.length === 0 ? <div className="flex flex-col items-center justify-center py-24 px-6 text-center"><div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-pink-500/10 border border-pink-500/20 text-pink-400"><Grid3X3 size={24} /></div><h2 className="font-bold text-lg mb-2">Nothing here yet</h2><p className="text-white/45 text-sm">Posts will appear here.</p></div> : <div className="grid grid-cols-3 gap-1">{data.posts.map(post => <button key={post.id} type="button" onClick={() => onOpenPost(post.id)} className="aspect-square bg-white/5 overflow-hidden"><img src={post.mediaUrl} alt={post.caption} className="w-full h-full object-cover" /></button>)}</div>}
+        {data.isPrivate && <button type="button" className="mt-4 px-4 py-2 rounded-full bg-white/10 text-xs" onClick={() => setListView("requests")}><Users size={14} className="inline mr-1" />Follow requests</button>}
+      </div>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 yuniko-bottom-nav glass border-t border-pink-400/15"><div className="flex items-center justify-around h-16 max-w-[1120px] mx-auto px-2"><button type="button" aria-label="Home" onClick={onBack} className="w-14 h-14 flex flex-col items-center justify-center gap-0.5"><span className="text-white/45 text-xl">⌂</span><span className="text-[10px] text-white/38">Home</span></button><button type="button" aria-label="Alerts" className="w-14 h-14 flex flex-col items-center justify-center gap-0.5"><span className="text-white/45">◌</span><span className="text-[10px] text-white/38">Alerts</span></button><span className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-white text-2xl" style={{background:"linear-gradient(135deg,#FF006E 0%,#8B00FF 100%)"}}>+</span><span className="w-14 h-14 flex flex-col items-center justify-center gap-0.5"><span className="text-white/45">◍</span><span className="text-[10px] text-white/38">Messages</span></span><button type="button" aria-label="Profile" className="w-14 h-14 flex flex-col items-center justify-center gap-0.5"><UserRound size={21} className="text-pink-400"/><span className="text-[10px] text-pink-400">Profile</span></button></div></nav>
       {listView && <FollowListSheet type={listView} items={listView === "followers" ? followersQuery.data ?? [] : listView === "following" ? followingQuery.data ?? [] : requestsQuery.data ?? []} loading={listView === "followers" ? followersQuery.isLoading : listView === "following" ? followingQuery.isLoading : requestsQuery.isLoading} onClose={() => setListView(null)} onRemove={listView === "followers" ? async (id) => { await removeFollower(id); await followersQuery.refetch(); } : undefined} onAccept={listView === "requests" ? async (id) => { await acceptFollowRequest(id); await requestsQuery.refetch(); } : undefined} onReject={listView === "requests" ? async (id) => { await rejectFollowRequest(id); await requestsQuery.refetch(); } : undefined} />}
       {moderationOpen && <ModerationSheet targetType="user" targetId={data.id} targetName={`@${data.username}`} onClose={() => setModerationOpen(false)} />}
     </main>
-  );
+;
 }
 
 function FollowListSheet({ type, items, loading, onClose, onRemove, onAccept, onReject }: { type: Exclude<ListView, null>; items: FollowListItem[]; loading: boolean; onClose: () => void; onRemove?: (id: string) => Promise<void>; onAccept?: (id: string) => Promise<void>; onReject?: (id: string) => Promise<void> }) { const title = type === "followers" ? "Followers" : type === "following" ? "Following" : "Follow requests"; return <div className="follow-sheet-backdrop" role="presentation" onClick={onClose}><section className="follow-sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}><header className="follow-sheet-header"><strong>{title}</strong><button type="button" className="profile-header-button" aria-label="Close" onClick={onClose}><X size={20} /></button></header><div className="follow-sheet-list">{loading && <div className="follow-sheet-state">Loading…</div>}{!loading && items.length === 0 && <div className="follow-sheet-state">No users here yet.</div>}{!loading && items.map((item) => <div className="follow-list-row" key={item.id}><img src={item.avatarUrl ?? ""} alt="" /><div className="follow-list-copy"><strong>{item.displayName}</strong><span>@{item.username}</span></div>{onAccept && <button type="button" className="follow-list-action accept" aria-label={`Accept ${item.username}`} onClick={() => void onAccept(item.id)}><Check size={17} /></button>}{onReject && <button type="button" className="follow-list-action reject" aria-label={`Reject ${item.username}`} onClick={() => void onReject(item.id)}><X size={17} /></button>}{onRemove && <button type="button" className="follow-list-text-action" onClick={() => void onRemove(item.id)}>Remove</button>}</div>)}</div></section></div>; }
