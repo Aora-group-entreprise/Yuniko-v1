@@ -289,3 +289,18 @@ input::placeholder,textarea::placeholder{color:rgba(255,255,255,.32)!important}
 .post-media,.story-media,.profile-grid img,.post-media-preview img{background:#15111d}
 .post-card,.feed-slide{background:#120e1e}
 .light,.theme-light,[data-theme="light"]{background:var(--yu-bg)!important;color:var(--yu-text)!important}
+
+
+/* YUNIKOV1.0.0 VISUAL REPLACEMENT, loaded as the only legacy-free global layer */
+:root{--yu-bg:#0d0b14;--yu-panel:#120e1e;--yu-line:rgba(255,255,255,.08);--yu-grad:linear-gradient(135deg,#ff006e,#8b00ff);--yu-text:#fafafa;--yu-muted:rgba(255,255,255,.52)}
+html,body,#root{background:#0d0b14!important;color:#fafafa!important}
+body{font-family:'DM Sans',sans-serif!important}
+h1,h2,h3,.yuniko-wordmark,.profile-header-name,.settings-header strong,.security-header strong,.stories-topbar strong{font-family:'Space Grotesk',sans-serif}
+.profile-shell,.settings-shell,.security-shell,.stories-page,.messages-page,.search-page,.feed-shell,.create-post-shell,.post-detail-scroll{background:#0d0b14!important;color:#fafafa!important}
+.settings-card,.security-card,.story-create-panel,.post-edit-sheet,.post-delete-sheet,.conversation-item,.notification-item,.search-profile,.search-post{background:rgba(255,255,255,.035)!important;border-color:var(--yu-line)!important;box-shadow:0 18px 55px rgba(0,0,0,.28)}
+.settings-menu-row,.settings-action,.security-row,.security-list-row{background:transparent!important;border-color:rgba(255,255,255,.055)!important}
+.settings-menu-row:hover,.settings-action:hover,.security-list-row:hover,.conversation-item:hover,.notification-item:hover{background:rgba(255,255,255,.045)!important}
+.auth-primary,.create-button,.post-edit-save,.story-create-actions button:last-child,.security-toggle.on,.follow-button,.profile-follow-button{background:var(--yu-grad)!important;color:#fff!important;border-color:transparent!important}
+.bottom-nav,.feed-header,.stories-topbar,.settings-header,.security-header,.messages-header,.conversation-header{background:rgba(10,8,18,.88)!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;border-color:rgba(255,0,110,.12)!important}
+input,textarea,select{color:#fff!important}input::placeholder,textarea::placeholder{color:rgba(255,255,255,.32)!important}
+.light,.theme-light,[data-theme="light"]{background:#0d0b14!important;color:#fafafa!important}
