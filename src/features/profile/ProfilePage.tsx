@@ -67,7 +67,7 @@ export function ProfilePage({ onBack, onOpenPost, profileId }: { onBack: () => v
   }
 
   return (
-    <main className="profile-shell">
+    <main className="profile-shell yunikov1-profile">
       <header className="profile-header">
         <button type="button" className="profile-header-button" aria-label="Back to feed" onClick={onBack}><ArrowLeft size={21} /></button>
         <span className="profile-header-name">{data.username}</span>
