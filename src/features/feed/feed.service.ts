@@ -68,7 +68,7 @@ export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> 
   const { data: seenRows, error: seenError } = await db.from("seen_posts")
     .select("post_id").eq("user_id", userId).gte("seen_at", seenCutoff);
   if (seenError) throw seenError;
-  const seenIds = (seenRows ?? []).map(row => row.post_id);
+  const seenIds: string[] = (seenRows ?? []).map(row => String(row.post_id));
 
   const [{ data: follows, error: followsError }, { data: affinities, error: affinityError }] = await Promise.all([
     db.from("follows").select("following_id").eq("follower_id", userId).eq("status", "accepted").limit(100),
@@ -100,9 +100,9 @@ export async function getFeedPage(cursor: FeedCursor = null): Promise<FeedPage> 
   if (personalizedError) throw personalizedError;
   if (globalError) throw globalError;
 
-  const rowMap = new Map<string, Record<string, unknown>>();
-  for (const row of [...(personalizedRows ?? []), ...(globalRows ?? [])]) rowMap.set(row.id, row);
-  const rows = [...rowMap.values()].sort((a,b) => {
+  type FeedRow = { id: string; author_id: string; caption: string | null; created_at: string; like_count: number; comment_count: number; save_count: number; share_count: number; view_count: number };\n  const rowMap = new Map<string, FeedRow>();
+  for (const row of [...(personalizedRows ?? []), ...(globalRows ?? [])]) rowMap.set(String(row.id), row as unknown as FeedRow);
+  const rows: FeedRow[] = [...rowMap.values()].sort((a,b) => {
     const ad = Date.parse(String(a.created_at)); const bd = Date.parse(String(b.created_at));
     return bd - ad || String(b.id).localeCompare(String(a.id));
   }).slice(0, CANDIDATE_BATCH);
