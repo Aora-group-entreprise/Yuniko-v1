@@ -5,6 +5,7 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { getFeedPage, markPostsSeen } from "./feed.service";
 import { getAlgorithmicFeed } from "./feed-ranking.service";
 import { PostCard } from "./components/PostCard";
+import { StoryStrip } from "./components/StoryStrip";
 import { getUnreadNotificationCount, subscribeToNotifications } from "../notifications/notifications.service";
 
 const ProfilePage = lazy(() => import("../profile/ProfilePage").then(module => ({ default: module.ProfilePage })));
@@ -69,6 +70,7 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
   });
 
   const posts = data?.pages.flatMap(page => page.posts) ?? [];
+  const stories = data?.pages[0]?.stories ?? [];
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -111,30 +113,33 @@ function FollowingFeed({ onOpenProfile, onOpenCreate, onOpenNotifications, onOpe
   }, [posts.length]);
 
   return <main className="feed-shell relative min-h-screen bg-[#0d0b14] overflow-hidden">
-    <header className="feed-header absolute inset-x-0 top-0 z-50 h-14">
-      <button type="button" className="yuniko-wordmark" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Yuniko</button>
-      <button type="button" className="world-selector" onClick={() => setWorldMenu(value => !value)} aria-expanded={worldMenu}><Globe size={12} />World Feed<ChevronDown size={11} /></button>
-      <div className="feed-header-actions">
-        <button type="button" aria-label="Search" onClick={onOpenSearch}><Search size={20} /></button>
-        <button type="button" aria-label="Add friends" onClick={onOpenSearch}><UserPlus size={20} /></button>
+    <header className="absolute inset-x-0 top-0 z-50 h-14 flex items-center justify-between gap-2 px-3 min-[360px]:px-4 glass border-b border-pink-400/10">
+      <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="text-2xl font-black gradient-text">Yuniko</button>
+      <button type="button" onClick={() => setWorldMenu(value => !value)} className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/[.06] border border-pink-400/30 text-white/90 text-xs min-[360px]:text-sm" aria-expanded={worldMenu}><Globe size={12} />World Feed<ChevronDown size={11} /></button>
+      <div className="flex items-center gap-3">
+        <button type="button" aria-label="Search" onClick={onOpenSearch}><Search size={20} className="text-white/75" /></button>
+        <button type="button" aria-label="Add friends" onClick={onOpenSearch}><UserPlus size={20} className="text-white/75" /></button>
       </div>
     </header>
-    {worldMenu && <><button className="fixed inset-0 z-40" aria-label="Close menu" onClick={() => setWorldMenu(false)} /><div className="world-menu absolute top-[60px] left-1/2 -translate-x-1/2 z-50" role="menu"><button type="button" role="menuitem" onClick={() => setWorldMenu(false)}><Globe size={13} />World Feed</button><button type="button" role="menuitem" onClick={() => { setWorldMenu(false); onOpenSearch(); }}><Hash size={13} />Trending tags</button></div></>}
-    {!online && <div className="offline-bar"><WifiOff size={12} /><span>Offline mode</span></div>}
-    <section className="feed-viewport absolute inset-x-0 top-[60px] bottom-[64px] overflow-y-scroll snap-y snap-mandatory no-scrollbar" data-testid="posts-feed" aria-label="World Feed">
+    <StoryStrip stories={stories} onOpenStory={onOpenStory} onCreateStory={onCreateStory} />
+    {worldMenu && <><button className="fixed inset-0 z-40 cursor-default" aria-label="Close menu" onClick={() => setWorldMenu(false)} /><div className="absolute top-[60px] left-1/2 -translate-x-1/2 w-44 rounded-2xl z-50 overflow-hidden bg-[#120e1e] border border-pink-400/25" role="menu"><button type="button" role="menuitem" onClick={() => setWorldMenu(false)} className="w-full px-4 py-3 text-left text-sm flex items-center gap-2"><Globe size={13} />World Feed</button><button type="button" role="menuitem" onClick={() => { setWorldMenu(false); onOpenSearch(); }} className="w-full px-4 py-3 text-left text-sm flex items-center gap-2"><Hash size={13} />Trending tags</button></div></>}
+    {!online && <div className="absolute inset-x-0 top-[134px] z-40 flex items-center justify-center gap-1.5 py-1.5 bg-red-500/85"><WifiOff size={12} /><span className="text-xs">Offline mode</span></div>}
+    <section className="absolute inset-x-0 top-[134px] bottom-[64px] overflow-y-scroll snap-y snap-mandatory no-scrollbar" data-testid="posts-feed" aria-label="World Feed">
       {isLoading && <FeedSkeleton />}
       {isError && <div className="feed-state">Unable to load the feed.</div>}
-      {!isLoading && !isError && posts.map(post => <div key={post.id} data-post-id={post.id} className="feed-slide relative w-full max-w-[920px] mx-auto px-2 py-1 snap-start snap-always" style={{ height: "calc(100dvh - 124px)", minHeight: 480 }}><div className="relative w-full h-full rounded-2xl overflow-hidden"><PostCard post={post} /></div></div>)}
+      {!isLoading && !isError && posts.map(post => <div key={post.id} data-post-id={post.id} className="relative w-full max-w-[920px] mx-auto px-2 py-1 snap-start snap-always" style={{ height: "calc(100dvh - 198px)", minHeight: 480 }}><div className="relative w-full h-full rounded-2xl overflow-hidden"><PostCard post={post} /></div></div>)}
       {!isLoading && !isError && posts.length === 0 && <div className="feed-state">No posts yet.</div>}
       <div ref={loadMoreRef} aria-hidden="true" style={{ height: 1 }} />
       {isFetchingNextPage && <div className="feed-state">Chargement…</div>}
     </section>
-    <nav className="bottom-nav" aria-label="Primary navigation">
-      <button type="button" className="nav-item active" aria-label="Home"><span>⌂</span><small>Home</small></button>
-      <button type="button" className="nav-item notification-nav" aria-label="Notifications" onClick={onOpenNotifications}><span><Bell size={21} />{unreadNotifications > 0 && <b>{unreadNotifications > 99 ? "99+" : unreadNotifications}</b>}</span><small>Alerts</small></button>
-      <button className="create-button" type="button" aria-label="Create" onClick={onOpenCreate}><Plus size={28} /></button>
-      <button type="button" className="nav-item" aria-label="Messages" onClick={onOpenMessages}><span><MessageCircle size={21} /></span><small>Messages</small></button>
-      <button type="button" className="nav-item" aria-label="Profile" onClick={onOpenProfile}><span><UserRound size={21} /></span><small>Profile</small></button>
+    <nav className="fixed bottom-0 left-0 right-0 z-50 yuniko-bottom-nav glass border-t border-pink-400/15" aria-label="Primary navigation">
+      <div className="flex items-center justify-around h-16 max-w-[1120px] mx-auto px-2">
+        <button type="button" aria-label="Home" onClick={() => window.scrollTo({top:0,behavior:"smooth"})} className="w-14 h-14 flex flex-col items-center justify-center gap-0.5 relative"><HomeIcon size={22} className="text-pink-400" strokeWidth={2.3} /><span className="text-[10px] text-pink-400">Home</span><span className="absolute bottom-0 w-1 h-1 rounded-full bg-pink-400" /></button>
+        <button type="button" aria-label="Notifications" onClick={onOpenNotifications} className="w-14 h-14 flex flex-col items-center justify-center gap-0.5 relative"><span className="relative"><Bell size={22} className="text-white/45" strokeWidth={1.7} />{unreadNotifications > 0 && <b className="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full bg-pink-400 text-white text-[9px] leading-4 text-center">{unreadNotifications > 99 ? "99+" : unreadNotifications}</b>}</span><span className="text-[10px] text-white/38">Alerts</span></button>
+        <motion.button whileTap={{scale:.88}} type="button" aria-label="Create" onClick={onOpenCreate} className="w-[52px] h-[52px] rounded-full flex items-center justify-center" style={{background:"linear-gradient(135deg,#FF006E 0%,#8B00FF 100%)",boxShadow:"0 0 24px rgba(255,0,110,.45)"}}><Plus size={25} className="text-white" strokeWidth={2.8}/></motion.button>
+        <button type="button" aria-label="Messages" onClick={onOpenMessages} className="w-14 h-14 flex flex-col items-center justify-center gap-0.5 relative"><MessageCircle size={22} className="text-white/45" strokeWidth={1.7}/><span className="text-[10px] text-white/38">Messages</span></button>
+        <button type="button" aria-label="Profile" onClick={onOpenProfile} className="w-14 h-14 flex flex-col items-center justify-center gap-0.5 relative"><UserRound size={22} className="text-white/45" strokeWidth={1.7}/><span className="text-[10px] text-white/38">Profile</span></button>
+      </div>
     </nav>
   </main>;
 }
